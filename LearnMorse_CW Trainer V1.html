@@ -1,0 +1,2409 @@
+<!DOCTYPE html>
+<!--
+═══════════════════════════════════════════════════════════════════════════
+  CW TRAINER
+  A neurological CW curriculum, not just a transcription tool.
+  Single-file, mobile-first, offline-capable, vanilla JS.
+  See CW-TRAINER-SPEC.md for full design rationale.
+═══════════════════════════════════════════════════════════════════════════
+
+  TAB STRUCTURE (left-to-right curriculum order):
+  📚 Learn   — sound-shape introduction        [STUB — Phase C]
+  ⚡ Reflex  — forced-choice recognition drill [NEW — Phase B]
+  ▶ Train   — character group transcription   [BUILT]
+  📡 Text   — continuous text & QSO copy       [BUILT]
+  🔤 Words  — whole-word recognition           [STUB — Phase C]
+  🎹 Send   — paddle sending practice          [STUB — Phase D]
+  ⚙ Config  — settings                          [BUILT]
+  📊 Stats  — statistics & data                 [BUILT]
+═══════════════════════════════════════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0e0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>CW Trainer</title>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SECTION 2: CSS
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  /* ─── Theme tokens ─── */
+  :root {
+    --bg: #0a0e0a; --surface: #0f1a0f; --surface2: #162016;
+    --green: #00ff41; --green-dim: #00a829; --green-dark: #003d12;
+    --amber: #ffb300; --red: #ff3b3b; --blue: #4dc4ff;
+    --text: #c8f0c8; --text-dim: #5a8a5a; --border: #1e3a1e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh; overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* CRT scanline overlay */
+  body::after {
+    content: ''; position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+
+  /* ─── Header ─── */
+  .header {
+    padding: 14px 18px 10px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .logo {
+    font-family: 'Orbitron', monospace; font-weight: 900;
+    font-size: 1.25rem; color: var(--green); letter-spacing: 0.15em;
+    text-shadow: 0 0 20px var(--green);
+  }
+  .logo span { color: var(--text-dim); }
+  .header-meta {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.1em;
+  }
+  .streak {
+    color: var(--amber);
+    text-shadow: 0 0 8px rgba(255,179,0,0.4);
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ─── Tabs (horizontally scrollable on narrow screens) ─── */
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 1; min-width: 78px;
+    padding: 12px 6px; text-align: center;
+    font-size: 0.62rem; letter-spacing: 0.06em;
+    color: var(--text-dim); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s; text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .tab.active {
+    color: var(--green); border-bottom-color: var(--green);
+    text-shadow: 0 0 10px var(--green);
+  }
+  .tab.stub { opacity: 0.45; }
+
+  .panel { display: none; padding: 16px; }
+  .panel.active { display: block; }
+
+  /* ─── Common building blocks ─── */
+  .section-label {
+    font-size: 0.6rem; letter-spacing: 0.2em;
+    color: var(--text-dim); text-transform: uppercase;
+    margin-bottom: 8px; margin-top: 16px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  .info-text {
+    font-size: 0.65rem; color: var(--text-dim); line-height: 1.5;
+    margin-top: 6px; padding: 8px 10px;
+    background: var(--surface); border-left: 2px solid var(--border);
+    border-radius: 0 3px 3px 0;
+  }
+
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .row label { font-size: 0.72rem; color: var(--text); min-width: 110px; }
+
+  input[type=range] {
+    flex: 1; -webkit-appearance: none; height: 4px;
+    background: var(--green-dark); border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px;
+    border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 8px var(--green); cursor: pointer;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--green); border: none; cursor: pointer;
+  }
+  .val {
+    font-size: 0.8rem; color: var(--green);
+    min-width: 38px; text-align: right;
+  }
+
+  .preset-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .preset-btn {
+    padding: 6px 11px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.1em;
+    border-radius: 3px; cursor: pointer;
+    text-transform: uppercase; transition: all 0.15s;
+  }
+  .preset-btn:hover, .preset-btn.active {
+    border-color: var(--green-dim); color: var(--green);
+  }
+  .preset-btn.active {
+    background: var(--green-dark);
+    box-shadow: 0 0 8px rgba(0,255,65,0.15);
+  }
+
+  .toggle-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px; padding: 8px 10px;
+    background: var(--surface); border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  .toggle-row label { font-size: 0.7rem; color: var(--text); flex: 1; }
+  .toggle {
+    width: 40px; height: 22px; background: var(--border);
+    border-radius: 11px; position: relative; cursor: pointer;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--text-dim); transition: all 0.2s;
+  }
+  .toggle.on { background: var(--green-dark); }
+  .toggle.on::after { left: 20px; background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* ─── Char picker grid (Config) ─── */
+  .char-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .char-btn {
+    width: 36px; height: 36px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text-dim); font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem; border-radius: 4px; cursor: pointer;
+    transition: all 0.15s; display: flex;
+    align-items: center; justify-content: center; position: relative;
+  }
+  .char-btn.selected {
+    border-color: var(--green); color: var(--green);
+    background: var(--green-dark);
+    box-shadow: 0 0 8px rgba(0,255,65,0.2);
+  }
+  .char-btn .error-dot {
+    position: absolute; top: 2px; right: 2px;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--red);
+  }
+
+  /* ─── Display panel (used in Train, Text, Reflex) ─── */
+  .trainer-display {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 16px; margin-bottom: 14px;
+    min-height: 80px; position: relative;
+  }
+  .wpm-badge {
+    position: absolute; top: 8px; right: 10px;
+    font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.1em;
+  }
+  .display-state {
+    font-family: 'Orbitron', monospace; font-size: 1.6rem;
+    color: var(--green); text-shadow: 0 0 15px var(--green);
+    letter-spacing: 0.3em; min-height: 44px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 2px;
+  }
+  .display-state.text-mode {
+    font-size: 0.95rem; letter-spacing: 0.1em;
+    line-height: 1.6; word-break: break-word;
+    white-space: pre-wrap; /* preserve spaces */
+  }
+  .listening-msg {
+    color: var(--text-dim); font-size: 0.75rem;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 0.1em; text-shadow: none;
+  }
+  .listening-pulse {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--amber);
+    box-shadow: 0 0 10px var(--amber);
+    margin-right: 8px; animation: pulse 0.8s infinite;
+  }
+  .char-item { display: inline-block; }
+  .char-item.correct { color: var(--green-dim); text-shadow: none; }
+  .char-item.wrong { color: var(--red); text-shadow: 0 0 10px var(--red); }
+
+  /* ─── Buttons ─── */
+  .controls { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .btn {
+    flex: 1; min-width: 70px; padding: 12px 8px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text); font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.12em;
+    text-transform: uppercase; border-radius: 4px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.primary {
+    border-color: var(--green-dim); color: var(--green);
+    box-shadow: 0 0 12px rgba(0,255,65,0.1);
+  }
+  .btn.primary:hover, .btn.primary.playing {
+    background: var(--green-dark);
+    box-shadow: 0 0 20px rgba(0,255,65,0.25);
+  }
+  .btn.danger { border-color: #3a1e1e; color: #ff6b6b; }
+  .btn.amber { border-color: var(--amber); color: var(--amber); }
+
+  /* ─── Input area ─── */
+  .input-area {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px;
+    margin-bottom: 14px; transition: all 0.2s;
+  }
+  .input-area.active {
+    border-color: var(--amber);
+    box-shadow: 0 0 12px rgba(255,179,0,0.15);
+  }
+  .input-area input, .input-area textarea {
+    width: 100%; background: transparent; border: none; outline: none;
+    font-family: 'Orbitron', monospace; font-size: 1.4rem;
+    color: var(--amber); letter-spacing: 0.25em;
+    padding: 10px 12px; caret-color: var(--amber);
+    text-transform: uppercase; resize: none;
+  }
+  .input-area textarea {
+    font-size: 1.05rem; letter-spacing: 0.15em;
+    min-height: 80px; line-height: 1.5;
+  }
+  .input-area input::placeholder, .input-area textarea::placeholder {
+    color: var(--text-dim); font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ─── Result diff display (Text mode) ─── */
+  .result-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 14px; margin-bottom: 14px; display: none;
+  }
+  .result-box.visible { display: block; }
+  .result-header {
+    font-size: 0.6rem; letter-spacing: 0.2em;
+    color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px;
+  }
+  .result-chars { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+  .result-char {
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    padding: 4px 6px; border-radius: 3px; min-width: 26px;
+  }
+  .result-char .sent { font-size: 0.85rem; color: var(--text-dim); }
+  .result-char .got { font-size: 0.85rem; font-family: 'Orbitron', monospace; }
+  .result-char.ok { background: rgba(0,255,65,0.05); }
+  .result-char.ok .got { color: var(--green); }
+  .result-char.bad { background: rgba(255,59,59,0.08); }
+  .result-char.bad .got { color: var(--red); }
+  .result-char.bad .sent { color: var(--red); text-decoration: underline; }
+
+  .diff-block {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 10px;
+    font-family: 'Orbitron', monospace; font-size: 0.95rem;
+    letter-spacing: 0.1em; line-height: 1.7;
+    margin-bottom: 8px; word-break: break-word;
+    white-space: pre-wrap; /* CRITICAL: preserves spaces in diff */
+  }
+  .diff-label {
+    font-size: 0.55rem; color: var(--text-dim);
+    letter-spacing: 0.2em; margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .diff-char.ok { color: var(--green); }
+  .diff-char.bad { color: var(--red); background: rgba(255,59,59,0.15); }
+  .diff-char.miss { color: var(--text-dim); text-decoration: line-through; }
+  .diff-char.extra { color: var(--amber); background: rgba(255,179,0,0.1); }
+
+  /* ─── Score row ─── */
+  .score-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .score-item { display: flex; flex-direction: column; align-items: center; }
+  .score-num {
+    font-family: 'Orbitron', monospace; font-size: 1.4rem;
+    color: var(--green); text-shadow: 0 0 10px var(--green);
+  }
+  .score-num.bad { color: var(--red); text-shadow: 0 0 10px var(--red); }
+  .score-num.amber { color: var(--amber); text-shadow: 0 0 10px var(--amber); }
+  .score-label {
+    font-size: 0.55rem; letter-spacing: 0.15em;
+    color: var(--text-dim); text-transform: uppercase;
+  }
+
+  /* ─── Stats panel ─── */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px; margin-bottom: 16px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; padding: 10px 8px; text-align: center;
+  }
+  .stat-card .sc { font-family: 'Orbitron', monospace; font-size: 1.1rem; }
+  .stat-card .sl { font-size: 0.55rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+  .stat-card.good .sc { color: var(--green); }
+  .stat-card.medium .sc { color: var(--amber); }
+  .stat-card.bad .sc { color: var(--red); }
+
+  .char-stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 5px;
+  }
+  .cs-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; padding: 6px 4px; text-align: center;
+  }
+  .cs-card .cs-char { font-family: 'Orbitron', monospace; font-size: 1rem; margin-bottom: 2px; }
+  .cs-card .cs-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 2px; }
+  .cs-card .cs-bar { height: 100%; border-radius: 2px; transition: width 0.4s; }
+  .cs-card .cs-pct { font-size: 0.55rem; color: var(--text-dim); }
+  .cs-card .cs-rt { font-size: 0.5rem; color: var(--blue); margin-top: 2px; }
+
+  /* ─── Play indicator + progress ─── */
+  .play-indicator {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.65rem; color: var(--text-dim);
+    margin-bottom: 8px; min-height: 18px; letter-spacing: 0.08em;
+  }
+  .play-indicator .pi-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 6px var(--green); display: none;
+  }
+  .play-indicator.playing .pi-dot { display: block; animation: pulse 0.5s infinite; }
+  .play-indicator.playing { color: var(--green); }
+
+  .progress-bar-wrap {
+    height: 3px; background: var(--green-dark);
+    border-radius: 2px; margin-bottom: 14px; overflow: hidden;
+  }
+  .progress-bar { height: 100%; background: var(--green); border-radius: 2px; width: 0%; }
+
+  /* ─── Session info bar ─── */
+  .session-info {
+    display: flex; justify-content: space-between;
+    font-size: 0.6rem; color: var(--text-dim); letter-spacing: 0.1em;
+    margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+
+  .kbd-hint {
+    font-size: 0.6rem; color: var(--text-dim);
+    text-align: center; margin-top: 6px; letter-spacing: 0.08em;
+  }
+
+  /* ─── Focus chars highlight ─── */
+  .focus-chars {
+    display: flex; flex-wrap: wrap; gap: 5px; padding: 8px;
+    background: rgba(255,59,59,0.05);
+    border: 1px solid rgba(255,59,59,0.2);
+    border-radius: 4px; margin-bottom: 10px;
+  }
+  .focus-char {
+    font-family: 'Orbitron', monospace; font-size: 0.9rem;
+    color: var(--red); padding: 3px 6px;
+    background: rgba(255,59,59,0.1); border-radius: 3px;
+  }
+  .focus-label {
+    font-size: 0.6rem; letter-spacing: 0.15em;
+    color: #ff6b6b; text-transform: uppercase; margin-bottom: 6px;
+  }
+
+  /* ─── Notification toast ─── */
+  .notification {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: var(--surface2); border: 1px solid var(--green-dim);
+    color: var(--green); font-size: 0.75rem; letter-spacing: 0.1em;
+    padding: 10px 20px; border-radius: 4px; z-index: 1000;
+    transition: transform 0.3s; white-space: nowrap; max-width: 90vw;
+  }
+  .notification.show { transform: translateX(-50%) translateY(0); }
+  .notification.warn { border-color: var(--amber); color: var(--amber); }
+
+  /* ─── Empty state ─── */
+  .empty-state {
+    text-align: center; padding: 40px 20px;
+    color: var(--text-dim); font-size: 0.75rem; letter-spacing: 0.1em;
+  }
+
+  /* ─── Stats panel data buttons & log ─── */
+  .data-actions { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .data-actions .btn { font-size: 0.62rem; padding: 10px 6px; }
+
+  .session-log {
+    max-height: 320px; overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 8px;
+  }
+  .session-log-row {
+    display: grid; grid-template-columns: 1fr auto auto auto;
+    gap: 10px; padding: 8px 4px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.7rem; align-items: center;
+  }
+  .session-log-row:last-child { border-bottom: none; }
+  .slr-time { color: var(--text-dim); font-size: 0.65rem; }
+  .slr-stat { color: var(--text); font-family: 'Orbitron', monospace; }
+  .slr-pct { font-family: 'Orbitron', monospace; font-weight: 700; }
+  .slr-pct.good { color: var(--green); }
+  .slr-pct.medium { color: var(--amber); }
+  .slr-pct.bad { color: var(--red); }
+  .slr-wpm { color: var(--text-dim); font-size: 0.6rem; }
+  .slr-mode { color: var(--green-dim); font-size: 0.55rem; letter-spacing: 0.1em; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     REFLEX TAB SPECIFIC STYLES
+     Forced-choice 4-button layout, large tap targets, colour flash feedback
+     ═══════════════════════════════════════════════════════════════════════ */
+  .reflex-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .reflex-btn {
+    aspect-ratio: 2 / 1;
+    min-height: 80px;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Orbitron', monospace;
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .reflex-btn:active {
+    transform: scale(0.97);
+  }
+  .reflex-btn.flash-correct {
+    background: var(--green-dark);
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 0 25px var(--green);
+  }
+  .reflex-btn.flash-wrong {
+    background: rgba(255,59,59,0.2);
+    border-color: var(--red);
+    color: var(--red);
+    box-shadow: 0 0 25px var(--red);
+  }
+  .reflex-btn.disabled { opacity: 0.5; pointer-events: none; }
+  .reflex-btn .kbd-num {
+    position: absolute; top: 4px; left: 6px;
+    font-size: 0.55rem; color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .reflex-progress {
+    display: flex; gap: 3px; margin-bottom: 14px;
+  }
+  .reflex-pip {
+    flex: 1; height: 4px; border-radius: 2px;
+    background: var(--border);
+  }
+  .reflex-pip.ok { background: var(--green); box-shadow: 0 0 4px var(--green); }
+  .reflex-pip.bad { background: var(--red); }
+  .reflex-pip.current { background: var(--amber); animation: pulse 0.6s infinite; }
+
+  .reflex-stat-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px; margin-bottom: 14px;
+  }
+  .reflex-stat {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 4px; padding: 8px; text-align: center;
+  }
+  .reflex-stat .rs-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem; color: var(--green);
+  }
+  .reflex-stat .rs-val.amber { color: var(--amber); }
+  .reflex-stat .rs-lbl {
+    font-size: 0.5rem; color: var(--text-dim);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .reflex-end-summary {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 14px; margin-bottom: 14px;
+    display: none;
+  }
+  .reflex-end-summary.visible { display: block; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     RECALL AREA (Text tab QSO recall)
+     ═══════════════════════════════════════════════════════════════════════ */
+  .recall-area {
+    background: var(--surface); border: 1px solid var(--amber);
+    border-radius: 6px; padding: 14px; margin-bottom: 14px; display: none;
+  }
+  .recall-area.visible { display: block; }
+  .recall-header {
+    font-size: 0.65rem; color: var(--amber); letter-spacing: 0.15em;
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  .recall-q { margin-bottom: 10px; }
+  .recall-q-label {
+    font-size: 0.65rem; color: var(--text-dim);
+    letter-spacing: 0.1em; margin-bottom: 4px;
+  }
+  .recall-q input {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); color: var(--amber);
+    font-family: 'Orbitron', monospace; font-size: 1rem;
+    letter-spacing: 0.15em; padding: 8px 10px;
+    border-radius: 3px; outline: none; text-transform: uppercase;
+  }
+  .recall-answer { font-size: 0.7rem; margin-top: 4px; }
+  .recall-answer.ok { color: var(--green); }
+  .recall-answer.bad { color: var(--red); }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     STUB PANELS (Learn / Words / Send)
+     ═══════════════════════════════════════════════════════════════════════ */
+  .stub-panel {
+    text-align: center; padding: 40px 20px;
+  }
+  .stub-panel h2 {
+    font-family: 'Orbitron', monospace;
+    color: var(--text-dim); font-size: 1.4rem;
+    letter-spacing: 0.15em; margin-bottom: 12px;
+  }
+  .stub-panel p {
+    color: var(--text-dim); font-size: 0.75rem;
+    line-height: 1.6; margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+  .stub-panel .stub-tag {
+    display: inline-block; margin-top: 12px;
+    padding: 4px 10px; background: var(--surface);
+    border: 1px solid var(--amber); color: var(--amber);
+    font-size: 0.6rem; letter-spacing: 0.2em;
+    text-transform: uppercase; border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SECTION 1: HTML
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="header">
+  <div class="logo">CW<span>.</span>TRAIN</div>
+  <div class="header-meta">
+    <span class="streak" id="streakDisplay" style="display:none"></span>
+    <div class="status-dot"></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab stub" data-tab="learn" onclick="switchTab('learn')">📚 Learn</div>
+  <div class="tab" data-tab="reflex" onclick="switchTab('reflex')">⚡ Reflex</div>
+  <div class="tab active" data-tab="trainer" onclick="switchTab('trainer')">▶ Train</div>
+  <div class="tab" data-tab="text" onclick="switchTab('text')">📡 Text</div>
+  <div class="tab stub" data-tab="words" onclick="switchTab('words')">🔤 Words</div>
+  <div class="tab stub" data-tab="send" onclick="switchTab('send')">🎹 Send</div>
+  <div class="tab" data-tab="settings" onclick="switchTab('settings')">⚙ Config</div>
+  <div class="tab" data-tab="stats" onclick="switchTab('stats')">📊 Stats</div>
+</div>
+
+<!-- ─── PANEL: LEARN [STUB] ─── -->
+<div class="panel" id="panel-learn">
+  <div class="stub-panel">
+    <h2>LEARN</h2>
+    <p>Sound-shape introduction with gibberish phonetic vocalizations.</p>
+    <p>Defeats dit-dah counting before it starts by encoding each character as an unanalyzable rhythm word (e.g., O = "HOLLOW HOLLOW HOLLOW", K = "WHO are YOU?").</p>
+    <p>Coming in Phase C — see CW-TRAINER-SPEC.md.</p>
+    <div class="stub-tag">Phase C — Stub</div>
+  </div>
+</div>
+
+<!-- ─── PANEL: REFLEX [NEW THIS BUILD] ─── -->
+<div class="panel" id="panel-reflex">
+  <div class="session-info">
+    <span id="reflexSessionLabel">REFLEX DRILL</span>
+    <span id="reflexCharsetLabel">SET: --</span>
+  </div>
+
+  <div id="reflexSetupArea">
+    <div class="section-label">── Drill Setup ──</div>
+    <div class="info-text" style="margin-bottom:12px">
+      Hear a character → tap the right one within 0.8s. Wrong or too slow = miss.
+      No typing, no buffer — pure reflex training. A character is "fluent" only when reaction time falls below 600ms.
+    </div>
+
+    <div class="section-label">Round size</div>
+    <div class="preset-row" id="reflexRoundRow">
+      <button class="preset-btn active" data-rsize="20" onclick="setReflexRound(20)">20</button>
+      <button class="preset-btn" data-rsize="30" onclick="setReflexRound(30)">30</button>
+      <button class="preset-btn" data-rsize="50" onclick="setReflexRound(50)">50</button>
+      <button class="preset-btn" data-rsize="100" onclick="setReflexRound(100)">100</button>
+    </div>
+
+    <div class="section-label">Time window</div>
+    <div class="preset-row" id="reflexWindowRow">
+      <button class="preset-btn" data-rwin="1200" onclick="setReflexWindow(1200)">Easy 1.2s</button>
+      <button class="preset-btn active" data-rwin="800" onclick="setReflexWindow(800)">Normal 0.8s</button>
+      <button class="preset-btn" data-rwin="500" onclick="setReflexWindow(500)">Hard 0.5s</button>
+    </div>
+
+    <div class="info-text" style="margin-top:12px">
+      Uses your selected characters from Config tab. <span id="reflexCharCountInfo"></span>
+    </div>
+
+    <div class="controls" style="margin-top:14px">
+      <button class="btn primary" onclick="startReflexRound()">▶ START DRILL</button>
+    </div>
+  </div>
+
+  <div id="reflexPlayArea" style="display:none">
+    <div class="reflex-stat-row">
+      <div class="reflex-stat">
+        <div class="rs-val" id="reflexProgressNum">0/20</div>
+        <div class="rs-lbl">Progress</div>
+      </div>
+      <div class="reflex-stat">
+        <div class="rs-val" id="reflexAccuracyNum">--</div>
+        <div class="rs-lbl">Accuracy</div>
+      </div>
+      <div class="reflex-stat">
+        <div class="rs-val amber" id="reflexRtNum">--</div>
+        <div class="rs-lbl">Avg ms</div>
+      </div>
+    </div>
+
+    <div class="reflex-progress" id="reflexProgressBar"></div>
+
+    <div class="reflex-buttons" id="reflexButtons">
+      <!-- 4 letter buttons rendered dynamically -->
+    </div>
+
+    <div class="play-indicator" id="reflexPlayIndicator">
+      <div class="pi-dot"></div>
+      <span id="reflexPlayStatus">LISTEN</span>
+    </div>
+
+    <div class="kbd-hint">Desktop: press [ 1 ] [ 2 ] [ 3 ] [ 4 ] for buttons</div>
+
+    <div class="controls">
+      <button class="btn danger" onclick="abortReflexRound()">✕ ABORT</button>
+    </div>
+  </div>
+
+  <div class="reflex-end-summary" id="reflexEndSummary">
+    <div class="result-header">── ROUND COMPLETE ──</div>
+    <div class="reflex-stat-row" style="margin-top:8px">
+      <div class="reflex-stat">
+        <div class="rs-val" id="reflexEndAccuracy">--</div>
+        <div class="rs-lbl">Accuracy</div>
+      </div>
+      <div class="reflex-stat">
+        <div class="rs-val amber" id="reflexEndAvgRt">--</div>
+        <div class="rs-lbl">Avg ms</div>
+      </div>
+      <div class="reflex-stat">
+        <div class="rs-val" id="reflexEndFastestRt">--</div>
+        <div class="rs-lbl">Best ms</div>
+      </div>
+    </div>
+    <div class="section-label" style="margin-top:14px">Per-character (slowest first)</div>
+    <div id="reflexCharBreakdown"></div>
+    <div class="controls" style="margin-top:14px">
+      <button class="btn primary" onclick="startReflexRound()">↻ AGAIN</button>
+      <button class="btn" onclick="exitReflexRound()">← BACK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── PANEL: TRAIN ─── -->
+<div class="panel active" id="panel-trainer">
+  <div class="session-info">
+    <span id="sessionScore">SESSION: 0/0</span>
+    <span id="focusInfo"></span>
+  </div>
+
+  <div id="focusArea" style="display:none">
+    <div class="focus-label">⚡ FOCUS CHARS (weak)</div>
+    <div class="focus-chars" id="focusChars"></div>
+  </div>
+
+  <div class="trainer-display">
+    <div class="wpm-badge" id="wpmBadge">-- WPM</div>
+    <div class="display-state" id="displayState">
+      <span class="listening-msg">Press PLAY to begin</span>
+    </div>
+  </div>
+
+  <div class="play-indicator" id="playIndicator">
+    <div class="pi-dot"></div>
+    <span id="playStatus">READY</span>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <div class="input-area" id="inputArea">
+    <input type="text" id="userInput" placeholder="type as you hear..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" disabled>
+  </div>
+  <div class="kbd-hint">[ SPACE ] play/stop &nbsp;·&nbsp; [ ENTER ] submit</div>
+
+  <div class="controls">
+    <button class="btn primary" id="playBtn" onclick="togglePlay()">▶ PLAY</button>
+    <button class="btn" onclick="replayLast()">↺ REPLAY</button>
+    <button class="btn" onclick="submitAnswer()">✓ SUBMIT</button>
+    <button class="btn danger" onclick="resetSession()">✕ RESET</button>
+  </div>
+
+  <div class="result-box" id="resultBox">
+    <div class="result-header">── RESULT (sent / you typed) ──</div>
+    <div class="result-chars" id="resultChars"></div>
+    <div class="score-row" id="scoreRow"></div>
+  </div>
+</div>
+
+<!-- ─── PANEL: TEXT ─── -->
+<div class="panel" id="panel-text">
+  <div class="session-info">
+    <span id="textSessionScore">TEXT SESSION: 0/0</span>
+    <span id="textModeLabel"></span>
+  </div>
+
+  <div class="section-label">── Mode ──</div>
+  <div class="preset-row" id="textModeRow">
+    <button class="preset-btn active" data-tmode="plain" onclick="setTextMode('plain')">Plain</button>
+    <button class="preset-btn" data-tmode="qso" onclick="setTextMode('qso')">QSO</button>
+    <button class="preset-btn" data-tmode="callsign" onclick="setTextMode('callsign')">Callsign</button>
+    <button class="preset-btn" data-tmode="mixed" onclick="setTextMode('mixed')">Mixed</button>
+  </div>
+
+  <div class="section-label">── Length ──</div>
+  <div class="preset-row" id="textLengthRow">
+    <button class="preset-btn active" data-tlen="short" onclick="setTextLength('short')">Short</button>
+    <button class="preset-btn" data-tlen="medium" onclick="setTextLength('medium')">Medium</button>
+    <button class="preset-btn" data-tlen="long" onclick="setTextLength('long')">Long</button>
+  </div>
+
+  <div class="section-label">── Region ──</div>
+  <div class="preset-row" id="textRegionRow">
+    <button class="preset-btn active" data-treg="indian" onclick="setTextRegion('indian')">Indian</button>
+    <button class="preset-btn" data-treg="intl" onclick="setTextRegion('intl')">International</button>
+    <button class="preset-btn" data-treg="mixed" onclick="setTextRegion('mixed')">Mixed</button>
+  </div>
+
+  <div class="toggle-row">
+    <label>Recall test (QSO mode) — quizzes callsign / name / QTH after passage</label>
+    <div class="toggle" id="recallToggle" onclick="toggleRecall()"></div>
+  </div>
+
+  <div class="trainer-display">
+    <div class="wpm-badge" id="textWpmBadge">-- WPM</div>
+    <div class="display-state text-mode" id="textDisplayState">
+      <span class="listening-msg">Press PLAY to begin</span>
+    </div>
+  </div>
+
+  <div class="play-indicator" id="textPlayIndicator">
+    <div class="pi-dot"></div>
+    <span id="textPlayStatus">READY</span>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-bar" id="textProgressBar"></div>
+  </div>
+
+  <div class="input-area" id="textInputArea">
+    <textarea id="textUserInput" placeholder="type as you hear..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" rows="3" disabled></textarea>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="textPlayBtn" onclick="toggleTextPlay()">▶ PLAY</button>
+    <button class="btn" onclick="replayTextLast()">↺ REPLAY</button>
+    <button class="btn" onclick="submitTextAnswer()">✓ SUBMIT</button>
+    <button class="btn danger" onclick="resetTextSession()">✕ RESET</button>
+  </div>
+
+  <div class="recall-area" id="recallArea">
+    <div class="recall-header">⚡ Recall — what did you copy?</div>
+    <div id="recallQuestions"></div>
+    <button class="btn primary" onclick="submitRecall()" style="width:100%;margin-top:8px">✓ CHECK ANSWERS</button>
+  </div>
+
+  <div class="result-box" id="textResultBox">
+    <div class="result-header">── RESULT ──</div>
+    <div class="diff-label">SENT</div>
+    <div class="diff-block" id="diffSent"></div>
+    <div class="diff-label">YOU TYPED (mistakes highlighted)</div>
+    <div class="diff-block" id="diffTyped"></div>
+    <div class="score-row" id="textScoreRow"></div>
+  </div>
+</div>
+
+<!-- ─── PANEL: WORDS [STUB] ─── -->
+<div class="panel" id="panel-words">
+  <div class="stub-panel">
+    <h2>WORDS</h2>
+    <p>Whole-word recognition drill — stop hearing letters, start hearing language.</p>
+    <p>Plays common CW words and abbreviations as single rhythm shapes (TNX, FB, OM, 73, RST, QTH, DE, CQ...). 4 word options appear; tap the right one within 1.5 seconds.</p>
+    <p>The bridge from "Morse student" to fluent operator. Coming in Phase C.</p>
+    <div class="stub-tag">Phase C — Stub</div>
+  </div>
+</div>
+
+<!-- ─── PANEL: SEND [STUB] ─── -->
+<div class="panel" id="panel-send">
+  <div class="stub-panel">
+    <h2>SEND</h2>
+    <p>Paddle sending practice — motor memory is the layer most apps skip.</p>
+    <p>Two big DIT/DAH buttons for mobile thumbs, configurable arrow keys for desktop, optional iambic mode. App scores your timing accuracy against ideal Morse rhythm.</p>
+    <p>Coming in Phase D — see CW-TRAINER-SPEC.md.</p>
+    <div class="stub-tag">Phase D — Stub</div>
+  </div>
+</div>
+
+<!-- ─── PANEL: CONFIG ─── -->
+<div class="panel" id="panel-settings">
+  <div class="section-label">── Speed ──</div>
+  <div class="row">
+    <label>Char speed (WPM)</label>
+    <input type="range" id="wpmSlider" min="10" max="40" value="20" oninput="updateSettings()">
+    <div class="val" id="wpmVal">20</div>
+  </div>
+  <div class="row">
+    <label>Effective (Farns)</label>
+    <input type="range" id="fwpmSlider" min="5" max="40" value="12" oninput="updateSettings()">
+    <div class="val" id="fwpmVal">12</div>
+  </div>
+  <div class="info-text">
+    <strong style="color:var(--amber)">Why character speed matters:</strong> Slower than 18 WPM teaches you to <em>count</em> dits and dahs. Counting is the wrong skill — fluent operators recognize sound shapes instantly. Keep character speed at 18+, lower the effective speed via Farnsworth.
+  </div>
+
+  <div class="row" style="margin-top:12px">
+    <label>Tone (Hz)</label>
+    <input type="range" id="toneSlider" min="400" max="900" value="600" oninput="updateSettings()">
+    <div class="val" id="toneVal">600</div>
+  </div>
+  <div class="row">
+    <label>Group size</label>
+    <input type="range" id="groupSlider" min="1" max="10" value="5" oninput="updateSettings()">
+    <div class="val" id="groupVal">5</div>
+  </div>
+
+  <div class="section-label">── Characters ──</div>
+  <div class="preset-row">
+    <button class="preset-btn" onclick="applyPreset('letters')">Letters</button>
+    <button class="preset-btn" onclick="applyPreset('numbers')">Numbers</button>
+    <button class="preset-btn" onclick="applyPreset('koch5')">Koch 5</button>
+    <button class="preset-btn" onclick="applyPreset('koch10')">Koch 10</button>
+    <button class="preset-btn" onclick="applyPreset('all')">All</button>
+    <button class="preset-btn" onclick="applyPreset('none')">None</button>
+  </div>
+  <div class="char-grid" id="charGrid"></div>
+
+  <div class="section-label">── Focus Mode ──</div>
+  <div class="row">
+    <label>Focus weight</label>
+    <input type="range" id="focusSlider" min="0" max="100" value="60" oninput="updateSettings()">
+    <div class="val" id="focusVal">60%</div>
+  </div>
+  <div class="info-text">
+    Weak characters appear more often when focus weight &gt; 0. A character is "weak" if accuracy &lt; 75% (after 3+ attempts) <em>or</em> reflex reaction time &gt; 800ms (after 10+ attempts).
+  </div>
+
+  <div class="section-label">── Timed Sessions ──</div>
+  <div class="preset-row" id="timedLengthRow">
+    <button class="preset-btn" data-tmin="5" onclick="setTimedLength(5)">5 min</button>
+    <button class="preset-btn active" data-tmin="10" onclick="setTimedLength(10)">10 min</button>
+    <button class="preset-btn" data-tmin="15" onclick="setTimedLength(15)">15 min</button>
+    <button class="preset-btn" data-tmin="20" onclick="setTimedLength(20)">20 min</button>
+    <button class="preset-btn" data-tmin="30" onclick="setTimedLength(30)">30 min</button>
+  </div>
+  <div class="info-text">
+    Timed sessions run continuously until time expires, then show a comprehensive summary. Available in Train tab via the ⏱ TIMED button.
+  </div>
+</div>
+
+<!-- ─── PANEL: STATS ─── -->
+<div class="panel" id="panel-stats">
+  <div class="section-label">── Overview ──</div>
+  <div class="stats-grid" id="overviewGrid"></div>
+
+  <div class="section-label">── Backup &amp; Sync ──</div>
+  <div class="data-actions">
+    <button class="btn primary" onclick="exportData()">⬇ EXPORT JSON</button>
+    <button class="btn" onclick="document.getElementById('importFile').click()">⬆ IMPORT JSON</button>
+    <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importData(event)">
+  </div>
+  <div class="info-text">
+    EXPORT downloads a JSON file you save to Drive / Dropbox / iCloud. IMPORT merges (no overwrite). Use this to sync between phone and desktop.
+  </div>
+
+  <div class="section-label">── Character Accuracy & Reaction Time ──</div>
+  <div id="charStatsArea">
+    <div class="empty-state">No data yet. Start training!</div>
+  </div>
+
+  <div class="section-label">── Recent Sessions ──</div>
+  <div id="sessionLogArea">
+    <div class="empty-state">No sessions logged yet.</div>
+  </div>
+
+  <div style="margin-top:16px">
+    <button class="btn danger" onclick="clearStats()" style="width:100%">CLEAR ALL DATA</button>
+  </div>
+</div>
+
+<div class="notification" id="notification"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 3: CONSTANTS
+// Morse table, Koch order, content pools.
+// Adding a character? Update MORSE here. Pools below are independent.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const MORSE = {
+  'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....','I':'..','J':'.---','K':'-.-','L':'.-..','M':'--','N':'-.','O':'---','P':'.--.','Q':'--.-','R':'.-.','S':'...','T':'-','U':'..-','V':'...-','W':'.--','X':'-..-','Y':'-.--','Z':'--..',
+  '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.',
+  '/':'-..-.','?':'..--..','=':'-...-','.':'.-.-.-',',':'--..--'
+};
+const KOCH = ['K','M','U','R','E','S','N','A','P','T','L','W','I','J','Z','F','O','Y','V','G','H','B','Q','C','D','X',
+  '0','1','2','3','4','5','6','7','8','9'];
+const ALL_CHARS = Object.keys(MORSE);
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const NUMBERS = '0123456789'.split('');
+
+// Prosigns / phrases that get extra-long pause after them in Text mode
+const SENTENCE_BREAK_TOKENS = ['K','KN','73','SK','AR','BK'];
+
+// Content pools (compact — function generators use these)
+const PREFIXES_INDIA = ['VU2','VU3'];
+const PREFIXES_INTL = ['K','W','N','KA','KB','WA','WB','G','M','2E','DL','DK','DJ','F','I','EA','JA','JE','JH','VK','ZL','PY','OH','OK','OE','SM','LA','ON','PA','HB','UA','BV','9V','9M','HL'];
+const NAMES_INDIA = ['RAJ','AMIT','PRIYA','SURESH','VIKRAM','RAVI','ARUN','ANIL','RAHUL','MANOJ','KIRAN','SANJAY','DEEPAK','PRADEEP','ASHOK','VIJAY','RAMESH','MOHAN','GOPAL','HARI'];
+const NAMES_INTL = ['JOHN','MIKE','DAVE','BOB','PETER','TOM','JIM','PAUL','RICK','STEVE','HANS','KARL','PIERRE','CARLO','PEDRO','JUAN','TARO','KEN','OLE','LARS'];
+const QTH_INDIA = ['MUMBAI','DELHI','BENGALURU','HYDERABAD','CHENNAI','PUNE','KOLKATA','AHMEDABAD','JAIPUR','LUCKNOW','BHOPAL','PATNA','SURAT','NAGPUR','INDORE','KANPUR','KOCHI','GOA','VARANASI','MYSURU'];
+const QTH_INTL = ['LONDON','TOKYO','BERLIN','PARIS','ROME','MADRID','SYDNEY','TORONTO','OSLO','VIENNA','PRAGUE','OSAKA','HAMBURG','MUNICH','MOSCOW','SEOUL','LISBON','DUBLIN','ZURICH','HELSINKI'];
+const WORDS = ['THE','AND','FOR','ARE','BUT','NOT','YOU','ALL','CAN','HAD','HER','WAS','ONE','OUR','OUT','DAY','GET','HAS','HIM','HIS','HOW','MAN','NEW','NOW','OLD','SEE','TWO','WAY','WHO','BOY','DID','ITS','LET','PUT','SAY','SHE','TOO','USE','TIME','GOOD','MAKE','WORK','LIFE','HOME','HAND','HIGH','OVER','SUCH','TAKE','THAN','THEM','WELL','BACK','EACH','EVEN','MOST','ONLY','SOME','VERY','WHEN','WITH','YEAR','RADIO','SIGNAL','POWER','ANTENNA','STATION','MORSE','CODE','TOWER','FREQ','BAND','WAVE','EARTH','SPACE','SUN','MOON','RAIN','WIND'];
+const ABBREVS = ['FB','TNX','OM','YL','HR','CPY','UR','DE','RST','QTH','QSL','QRZ','QRM','QSB','73','88','BK','GM','GA','GE','PSE','NR','RIG','ANT','PWR','WX','HW','ES','AGN','DX'];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 4: STORAGE LAYER
+// localStorage key: 'cwData'. Schema versioned. Stats track reactionTimes too.
+// To extend: add fields to default object in loadData().
+// ═══════════════════════════════════════════════════════════════════════════
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem('cwData');
+    const def = { version: 2, stats: {}, sessions: [], progress: { phase: 1, completedDrills: [] } };
+    if (!raw) return def;
+    const d = JSON.parse(raw);
+    if (!d.stats) d.stats = {};
+    if (!d.sessions) d.sessions = [];
+    if (!d.progress) d.progress = { phase: 1, completedDrills: [] };
+    // Migrate older entries: ensure reactionTimes array exists
+    Object.keys(d.stats).forEach(c => {
+      if (!Array.isArray(d.stats[c].reactionTimes)) d.stats[c].reactionTimes = [];
+    });
+    return d;
+  } catch (e) {
+    return { version: 2, stats: {}, sessions: [], progress: { phase: 1, completedDrills: [] } };
+  }
+}
+
+function saveData() {
+  try { localStorage.setItem('cwData', JSON.stringify(data)); }
+  catch (e) { notify('Save failed: ' + e.message); }
+}
+
+let data = loadData();
+
+// Stat helpers — single source of truth
+function ensureCharStat(c) {
+  if (!data.stats[c]) data.stats[c] = { correct: 0, total: 0, reactionTimes: [], lastSeen: 0 };
+  if (!Array.isArray(data.stats[c].reactionTimes)) data.stats[c].reactionTimes = [];
+  return data.stats[c];
+}
+
+function recordCharResult(c, ok, reactionMs) {
+  const s = ensureCharStat(c);
+  s.total++;
+  if (ok) s.correct++;
+  s.lastSeen = Date.now();
+  if (typeof reactionMs === 'number' && ok) {
+    s.reactionTimes.push(reactionMs);
+    if (s.reactionTimes.length > 50) s.reactionTimes = s.reactionTimes.slice(-50);
+  }
+}
+
+function avgReactionTime(c) {
+  const s = data.stats[c];
+  if (!s || !s.reactionTimes || s.reactionTimes.length === 0) return null;
+  const sum = s.reactionTimes.reduce((a, b) => a + b, 0);
+  return Math.round(sum / s.reactionTimes.length);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 5: AUDIO ENGINE
+// Web Audio API. ITU/ARRL timing: dit=1, dah=3, intra=1, char=3, word=7.
+// Farnsworth: chars play at WPM, gaps stretch to fwpm.
+// ═══════════════════════════════════════════════════════════════════════════
+
+let audioCtx = null;
+let masterGain = null;
+let activeOscillators = [];
+let scheduledTimers = [];
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function getDitDah() {
+  const wpm = settings.wpm;
+  const fwpm = Math.min(settings.fwpm, settings.wpm);
+  const dit = 1200 / wpm;             // ms — one dit unit
+  const fDit = 1200 / fwpm;            // ms — Farnsworth-stretched dit (for gaps)
+  return {
+    dit,                                // duration of a dit
+    dah: dit * 3,                       // duration of a dah
+    elemSpace: dit,                     // gap between elements within a char
+    charSpace: fDit * 3,                // gap between chars (Farnsworth-stretched)
+    wordSpace: fDit * 7,                // gap between words (Farnsworth-stretched)
+    sentenceSpace: fDit * 14            // 2x word gap (used after K, 73, SK, AR, BK)
+  };
+}
+
+function scheduleTone(ctx, gainNode, freq, startTime, duration) {
+  const osc = ctx.createOscillator();
+  const envGain = ctx.createGain();
+  osc.connect(envGain); envGain.connect(gainNode);
+  osc.type = 'sine'; osc.frequency.setValueAtTime(freq, startTime);
+  const ramp = 0.008; // 8ms envelope = no keyclicks
+  envGain.gain.setValueAtTime(0, startTime);
+  envGain.gain.linearRampToValueAtTime(0.5, startTime + ramp);
+  envGain.gain.setValueAtTime(0.5, startTime + duration - ramp);
+  envGain.gain.linearRampToValueAtTime(0, startTime + duration);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.01);
+  return osc;
+}
+
+/**
+ * Play Morse for a string or array.
+ * Sentence breaks: when input is a string and a token in SENTENCE_BREAK_TOKENS
+ * appears as a complete word, an extra-long pause is inserted after it.
+ */
+function playMorse(input, progressBarId, onDone) {
+  stopAllAudio();
+  const ctx = getAudioCtx();
+  masterGain = ctx.createGain();
+  masterGain.gain.value = 1;
+  masterGain.connect(ctx.destination);
+  const T = getDitDah();
+  let t = ctx.currentTime + 0.05;
+  const totalStart = t;
+
+  // Tokenize: if string, split on space and detect sentence-break tokens.
+  // If array, treat each element as a single character (no sentence breaks).
+  const isString = typeof input === 'string';
+  const tokens = isString ? input.toUpperCase().split(/\s+/) : input;
+
+  if (isString) {
+    tokens.forEach((word, wi) => {
+      [...word].forEach((ch, ci) => {
+        const code = MORSE[ch];
+        if (!code) return;
+        code.split('').forEach((sym, si) => {
+          const dur = (sym === '.' ? T.dit : T.dah) / 1000;
+          const osc = scheduleTone(ctx, masterGain, settings.tone, t, dur);
+          activeOscillators.push(osc);
+          t += dur;
+          if (si < code.length - 1) t += T.elemSpace / 1000;
+        });
+        if (ci < word.length - 1) t += T.charSpace / 1000;
+      });
+      // After this word: sentence break or normal word gap
+      if (wi < tokens.length - 1) {
+        const gap = SENTENCE_BREAK_TOKENS.includes(word) ? T.sentenceSpace : T.wordSpace;
+        t += gap / 1000;
+      }
+    });
+  } else {
+    // Char array: treat each non-space element as char, ' ' as word gap
+    tokens.forEach((ch, ci) => {
+      if (ch === ' ') { t += T.wordSpace / 1000; return; }
+      const code = MORSE[ch.toUpperCase()];
+      if (!code) return;
+      code.split('').forEach((sym, si) => {
+        const dur = (sym === '.' ? T.dit : T.dah) / 1000;
+        const osc = scheduleTone(ctx, masterGain, settings.tone, t, dur);
+        activeOscillators.push(osc);
+        t += dur;
+        if (si < code.length - 1) t += T.elemSpace / 1000;
+      });
+      if (ci < tokens.length - 1 && tokens[ci+1] !== ' ') t += T.charSpace / 1000;
+    });
+  }
+
+  const totalDuration = t - totalStart;
+  if (progressBarId) animateProgress(progressBarId, totalDuration);
+  const doneTimer = setTimeout(() => { if (onDone) onDone(); },
+    (totalDuration + 0.1) * 1000);
+  scheduledTimers.push(doneTimer);
+  return totalDuration;
+}
+
+function stopAllAudio() {
+  scheduledTimers.forEach(t => clearTimeout(t));
+  scheduledTimers = [];
+  if (masterGain && audioCtx) {
+    try {
+      masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+      masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.05);
+    } catch(e) {}
+  }
+  activeOscillators.forEach(o => {
+    try { o.stop(audioCtx.currentTime + 0.06); } catch(e) {}
+  });
+  activeOscillators = [];
+  if (progInterval) {
+    clearInterval(progInterval);
+    ['progressBar','textProgressBar'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.width = '0%';
+    });
+  }
+}
+
+let progInterval = null;
+function animateProgress(barId, totalDuration) {
+  const bar = document.getElementById(barId);
+  if (!bar) return;
+  if (progInterval) clearInterval(progInterval);
+  const start = Date.now();
+  bar.style.width = '0%';
+  progInterval = setInterval(() => {
+    const elapsed = (Date.now() - start) / 1000;
+    const pct = Math.min(100, (elapsed / totalDuration) * 100);
+    bar.style.width = pct + '%';
+    if (pct >= 100) {
+      clearInterval(progInterval);
+      setTimeout(() => bar.style.width = '0%', 400);
+    }
+  }, 50);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 6: GENERATORS
+// Random groups, callsigns, RST, QSO, plain text. Keep these pure & reusable.
+// ═══════════════════════════════════════════════════════════════════════════
+
+function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function getWeakChars() {
+  const allowed = [...settings.selectedChars];
+  return allowed.filter(c => {
+    const s = data.stats[c];
+    if (!s) return false;
+    const accWeak = s.total >= 3 && (s.correct / s.total) < 0.75;
+    const rt = avgReactionTime(c);
+    const rtWeak = rt && s.reactionTimes.length >= 10 && rt > 800;
+    return accWeak || rtWeak;
+  });
+}
+
+function getWeightedChars() {
+  const chars = [...settings.selectedChars];
+  if (chars.length === 0) return [];
+  const focusW = settings.focusWeight / 100;
+  const weak = getWeakChars();
+
+  // Update Train tab focus area visibility
+  const focusArea = document.getElementById('focusArea');
+  const focusChars = document.getElementById('focusChars');
+  const focusInfo = document.getElementById('focusInfo');
+  if (weak.length > 0 && focusW > 0) {
+    focusArea.style.display = 'block';
+    focusChars.innerHTML = weak.slice(0,8).map(c => `<span class="focus-char">${c}</span>`).join('');
+    focusInfo.textContent = `FOCUS: ${weak.length}`;
+  } else {
+    focusArea.style.display = 'none';
+    focusInfo.textContent = '';
+  }
+
+  if (weak.length === 0 || focusW === 0) return chars;
+  const pool = [];
+  chars.forEach(c => {
+    const isWeak = weak.includes(c);
+    const weight = isWeak ? Math.round(focusW * 10) : Math.round((1 - focusW) * 10);
+    for (let i = 0; i < Math.max(1, weight); i++) pool.push(c);
+  });
+  return pool;
+}
+
+function generateGroup() {
+  const pool = getWeightedChars();
+  if (pool.length === 0) return [];
+  const group = [];
+  for (let i = 0; i < settings.groupSize; i++) {
+    group.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  return group;
+}
+
+function getRegionPools() {
+  const r = textSettings.region;
+  return {
+    callsigns: r === 'indian' ? PREFIXES_INDIA : r === 'intl' ? PREFIXES_INTL : PREFIXES_INDIA.concat(PREFIXES_INTL),
+    names: r === 'indian' ? NAMES_INDIA : r === 'intl' ? NAMES_INTL : NAMES_INDIA.concat(NAMES_INTL),
+    qths: r === 'indian' ? QTH_INDIA : r === 'intl' ? QTH_INTL : QTH_INDIA.concat(QTH_INTL)
+  };
+}
+
+function genCallsign() {
+  const { callsigns } = getRegionPools();
+  const prefix = rand(callsigns);
+  let core = prefix;
+  if (!/\d$/.test(core)) core = core + randInt(0, 9);
+  const sufLen = randInt(2, 3);
+  let suffix = '';
+  for (let i = 0; i < sufLen; i++) suffix += rand(LETTERS);
+  return core + suffix;
+}
+
+function genRST() {
+  return `${randInt(3,5)}${randInt(5,9)}${randInt(7,9)}`;
+}
+
+function genCallsignBurst(count) {
+  const calls = [];
+  for (let i = 0; i < count; i++) calls.push(genCallsign());
+  return calls.join(' ');
+}
+
+function genQSO(level) {
+  const { names, qths } = getRegionPools();
+  const myCall = genCallsign();
+  const dxCall = genCallsign();
+  const myName = rand(names);
+  const myQth = rand(qths);
+  const rst = genRST();
+  const meta = { call: myCall, name: myName, qth: myQth, rst };
+  let lines = [];
+  if (level === 1) {
+    lines.push(`CQ CQ DE ${myCall} ${myCall} K`);
+  } else if (level === 2) {
+    lines.push(`${dxCall} DE ${myCall}`);
+    lines.push(`GM OM UR RST ${rst}`);
+    lines.push(`QTH ${myQth} NAME ${myName} HW CPY K`);
+  } else {
+    lines.push(`CQ CQ DE ${myCall} ${myCall} K`);
+    lines.push(`${dxCall} DE ${myCall} GM OM`);
+    lines.push(`UR RST ${rst} ${rst} QTH ${myQth} ${myQth}`);
+    lines.push(`NAME ${myName} ${myName} HW CPY ${dxCall} DE ${myCall} K`);
+    lines.push(`TNX FB QSO 73 SK`);
+  }
+  return { text: lines.join(' '), meta };
+}
+
+function genPlainText(wordCount) {
+  const weak = getWeakChars();
+  const focusW = settings.focusWeight / 100;
+  const pool = WORDS.concat(ABBREVS);
+  const words = [];
+  for (let i = 0; i < wordCount; i++) {
+    if (weak.length > 0 && Math.random() < focusW * 0.5) {
+      const charSet = [...new Set(weak.concat([...settings.selectedChars]))];
+      const len = randInt(2, 5);
+      let w = '';
+      for (let j = 0; j < len; j++) {
+        const useWeak = Math.random() < 0.6 && weak.length > 0;
+        w += useWeak ? rand(weak) : rand(charSet);
+      }
+      words.push(w);
+    } else {
+      words.push(rand(pool));
+    }
+  }
+  return words.join(' ');
+}
+
+function generateTextPassage() {
+  const lengthMap = {
+    short:  { plain: 5,  qso: 1, callsign: 4,  mixed: 1 },
+    medium: { plain: 12, qso: 2, callsign: 8,  mixed: 2 },
+    long:   { plain: 25, qso: 3, callsign: 15, mixed: 3 }
+  };
+  const counts = lengthMap[textSettings.length];
+  if (textSettings.mode === 'plain')    return { text: genPlainText(counts.plain), meta: null };
+  if (textSettings.mode === 'qso')      return genQSO(counts.qso);
+  if (textSettings.mode === 'callsign') return { text: genCallsignBurst(counts.callsign), meta: null };
+  if (textSettings.mode === 'mixed') {
+    const parts = [];
+    parts.push(genCallsignBurst(randInt(2, 4)));
+    parts.push(genPlainText(randInt(3, 6)));
+    if (counts.mixed >= 2) parts.push(genQSO(1).text);
+    return { text: parts.join(' '), meta: null };
+  }
+  return { text: '', meta: null };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 7: TAB — LEARN [STUB]
+// Phase C. Sound-shape introduction with gibberish vocalizations.
+// ═══════════════════════════════════════════════════════════════════════════
+// (no logic yet — panel renders informational stub)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 8: TAB — REFLEX [NEW THIS BUILD]
+// Forced-choice 4-button drill. Single character plays, user has X ms to tap
+// the right letter button. Wrong/timeout = miss. Tracks per-char reaction
+// time. Mastery threshold: avg RT < 600ms over last 20 attempts.
+// ═══════════════════════════════════════════════════════════════════════════
+
+let reflexConfig = {
+  roundSize: 20,
+  windowMs: 800,    // time allowed to respond
+  optionCount: 4    // 4 buttons
+};
+let reflexState = null;  // { trials, idx, startTime, options, correct, target, avgRt, results }
+
+function setReflexRound(n) {
+  reflexConfig.roundSize = n;
+  document.querySelectorAll('[data-rsize]').forEach(b =>
+    b.classList.toggle('active', +b.dataset.rsize === n));
+}
+function setReflexWindow(ms) {
+  reflexConfig.windowMs = ms;
+  document.querySelectorAll('[data-rwin]').forEach(b =>
+    b.classList.toggle('active', +b.dataset.rwin === ms));
+}
+
+function startReflexRound() {
+  const allowed = [...settings.selectedChars];
+  if (allowed.length < reflexConfig.optionCount) {
+    notify(`Need at least ${reflexConfig.optionCount} characters in Config`);
+    return;
+  }
+
+  // Build trial sequence — weighted by weak chars
+  const pool = getWeightedChars();
+  const trials = [];
+  for (let i = 0; i < reflexConfig.roundSize; i++) {
+    trials.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+
+  reflexState = {
+    trials, idx: 0,
+    startTime: 0,
+    options: [],
+    target: null,
+    results: [],   // [{ char, ok, rtMs }]
+    answered: false
+  };
+
+  document.getElementById('reflexSetupArea').style.display = 'none';
+  document.getElementById('reflexEndSummary').classList.remove('visible');
+  document.getElementById('reflexPlayArea').style.display = 'block';
+
+  renderReflexProgress();
+  updateReflexLiveStats();
+  setTimeout(() => nextReflexTrial(), 400);
+}
+
+function nextReflexTrial() {
+  if (!reflexState) return;
+  if (reflexState.idx >= reflexState.trials.length) {
+    finishReflexRound();
+    return;
+  }
+
+  const target = reflexState.trials[reflexState.idx];
+  reflexState.target = target;
+  reflexState.answered = false;
+
+  // Build 4 options: 1 correct + 3 distractors from selected chars
+  const allowed = [...settings.selectedChars].filter(c => c !== target);
+  // Shuffle and take 3
+  for (let i = allowed.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allowed[i], allowed[j]] = [allowed[j], allowed[i]];
+  }
+  const distractors = allowed.slice(0, reflexConfig.optionCount - 1);
+  const options = [target, ...distractors];
+  // Shuffle final options
+  for (let i = options.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [options[i], options[j]] = [options[j], options[i]];
+  }
+  reflexState.options = options;
+
+  renderReflexButtons();
+  setReflexStatus('LISTEN');
+  document.getElementById('reflexPlayIndicator').classList.add('playing');
+
+  // Play the character then start the response window
+  const duration = playMorse([target], null, () => {
+    if (!reflexState || reflexState.answered) return;
+    reflexState.startTime = Date.now();
+    document.getElementById('reflexPlayIndicator').classList.remove('playing');
+    setReflexStatus(`TAP! ${reflexConfig.windowMs}ms`);
+    // Set timeout for window
+    reflexState.timeoutId = setTimeout(() => {
+      if (reflexState && !reflexState.answered) {
+        recordReflexAnswer(null, true); // timeout
+      }
+    }, reflexConfig.windowMs);
+  });
+}
+
+function setReflexStatus(text) {
+  document.getElementById('reflexPlayStatus').textContent = text;
+}
+
+function renderReflexButtons() {
+  const container = document.getElementById('reflexButtons');
+  container.innerHTML = reflexState.options.map((c, i) => `
+    <button class="reflex-btn" data-rchar="${c}" onclick="reflexAnswer('${c}')">
+      <span class="kbd-num">${i + 1}</span>
+      ${c}
+    </button>
+  `).join('');
+}
+
+function reflexAnswer(c) {
+  if (!reflexState || reflexState.answered) return;
+  recordReflexAnswer(c, false);
+}
+
+function recordReflexAnswer(chosen, isTimeout) {
+  reflexState.answered = true;
+  if (reflexState.timeoutId) {
+    clearTimeout(reflexState.timeoutId);
+    reflexState.timeoutId = null;
+  }
+
+  const target = reflexState.target;
+  const rtMs = isTimeout ? reflexConfig.windowMs : (Date.now() - reflexState.startTime);
+  const ok = !isTimeout && chosen === target;
+
+  // Visual feedback flash on the button
+  document.querySelectorAll('.reflex-btn').forEach(btn => {
+    const ch = btn.dataset.rchar;
+    if (ch === target) btn.classList.add('flash-correct');
+    else if (chosen && ch === chosen && !ok) btn.classList.add('flash-wrong');
+    btn.classList.add('disabled');
+  });
+
+  // Record result
+  reflexState.results.push({ char: target, ok, rtMs, timeout: isTimeout });
+  recordCharResult(target, ok, ok ? rtMs : null);
+
+  reflexState.idx++;
+  renderReflexProgress();
+  updateReflexLiveStats();
+  saveData();
+
+  // Move to next after brief pause for feedback
+  setTimeout(() => nextReflexTrial(), ok ? 300 : 700);
+}
+
+function renderReflexProgress() {
+  const total = reflexState.trials.length;
+  const bar = document.getElementById('reflexProgressBar');
+  let html = '';
+  for (let i = 0; i < total; i++) {
+    let cls = '';
+    if (i < reflexState.idx) {
+      const r = reflexState.results[i];
+      cls = r && r.ok ? 'ok' : 'bad';
+    } else if (i === reflexState.idx) {
+      cls = 'current';
+    }
+    html += `<div class="reflex-pip ${cls}"></div>`;
+  }
+  bar.innerHTML = html;
+}
+
+function updateReflexLiveStats() {
+  const done = reflexState.results.length;
+  const correct = reflexState.results.filter(r => r.ok).length;
+  const acc = done > 0 ? Math.round((correct / done) * 100) : 0;
+  const rts = reflexState.results.filter(r => r.ok).map(r => r.rtMs);
+  const avgRt = rts.length > 0 ? Math.round(rts.reduce((a,b)=>a+b,0) / rts.length) : null;
+
+  document.getElementById('reflexProgressNum').textContent = `${reflexState.idx}/${reflexState.trials.length}`;
+  document.getElementById('reflexAccuracyNum').textContent = done > 0 ? `${acc}%` : '--';
+  document.getElementById('reflexRtNum').textContent = avgRt ? `${avgRt}` : '--';
+}
+
+function finishReflexRound() {
+  document.getElementById('reflexPlayArea').style.display = 'none';
+
+  const results = reflexState.results;
+  const correct = results.filter(r => r.ok).length;
+  const total = results.length;
+  const acc = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const rts = results.filter(r => r.ok).map(r => r.rtMs);
+  const avgRt = rts.length > 0 ? Math.round(rts.reduce((a,b)=>a+b,0) / rts.length) : 0;
+  const fastestRt = rts.length > 0 ? Math.min(...rts) : 0;
+
+  document.getElementById('reflexEndAccuracy').textContent = `${acc}%`;
+  document.getElementById('reflexEndAvgRt').textContent = avgRt > 0 ? avgRt : '--';
+  document.getElementById('reflexEndFastestRt').textContent = fastestRt > 0 ? fastestRt : '--';
+
+  // Per-char breakdown — sort by avg RT desc (slowest first)
+  const charMap = {};
+  results.forEach(r => {
+    if (!charMap[r.char]) charMap[r.char] = { hits: 0, total: 0, rts: [] };
+    charMap[r.char].total++;
+    if (r.ok) {
+      charMap[r.char].hits++;
+      charMap[r.char].rts.push(r.rtMs);
+    }
+  });
+  const breakdown = Object.entries(charMap).map(([c, m]) => {
+    const a = m.total > 0 ? Math.round((m.hits / m.total) * 100) : 0;
+    const r = m.rts.length > 0 ? Math.round(m.rts.reduce((a,b)=>a+b,0) / m.rts.length) : 0;
+    return { c, a, r, total: m.total };
+  }).sort((a, b) => b.r - a.r);
+
+  document.getElementById('reflexCharBreakdown').innerHTML = `<div class="char-stats-grid">${
+    breakdown.map(b => {
+      const aColor = b.a >= 80 ? 'var(--green)' : b.a >= 60 ? 'var(--amber)' : 'var(--red)';
+      const rColor = b.r === 0 ? 'var(--red)' : b.r < 600 ? 'var(--green)' : b.r < 900 ? 'var(--amber)' : 'var(--red)';
+      return `<div class="cs-card">
+        <div class="cs-char" style="color:${aColor}">${b.c}</div>
+        <div class="cs-bar-wrap"><div class="cs-bar" style="width:${b.a}%;background:${aColor}"></div></div>
+        <div class="cs-pct">${b.a}%</div>
+        <div class="cs-rt" style="color:${rColor}">${b.r || '--'} ms</div>
+      </div>`;
+    }).join('')
+  }</div>`;
+
+  document.getElementById('reflexEndSummary').classList.add('visible');
+
+  // Log the session
+  data.sessions.push({
+    timestamp: Date.now(), kind: 'reflex',
+    correct, total, units: total,
+    wpm: settings.wpm, fwpm: settings.fwpm,
+    chars: [...settings.selectedChars].join(''),
+    extra: { avgReactionMs: avgRt, windowMs: reflexConfig.windowMs }
+  });
+  if (data.sessions.length > 200) data.sessions = data.sessions.slice(-200);
+  saveData();
+  updateCharGridErrors();
+  updateStreakDisplay();
+}
+
+function abortReflexRound() {
+  if (reflexState && reflexState.timeoutId) clearTimeout(reflexState.timeoutId);
+  stopAllAudio();
+  reflexState = null;
+  document.getElementById('reflexPlayArea').style.display = 'none';
+  document.getElementById('reflexSetupArea').style.display = 'block';
+  document.getElementById('reflexEndSummary').classList.remove('visible');
+}
+
+function exitReflexRound() {
+  reflexState = null;
+  document.getElementById('reflexEndSummary').classList.remove('visible');
+  document.getElementById('reflexSetupArea').style.display = 'block';
+}
+
+function updateReflexCharCountInfo() {
+  const n = settings.selectedChars.size;
+  const el = document.getElementById('reflexCharCountInfo');
+  if (el) el.textContent = `Currently ${n} characters selected.`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 9: TAB — TRAIN
+// Group transcription. Existing behavior + char WPM warning.
+// ═══════════════════════════════════════════════════════════════════════════
+
+let session = { correct: 0, total: 0, groups: 0, startTime: null };
+let currentGroup = [];
+let isPlaying = false;
+let lastGroup = [];
+
+function togglePlay() {
+  if (isPlaying) stopPlay();
+  else startNewGroup();
+}
+
+function stopPlay() {
+  isPlaying = false; stopAllAudio();
+  document.getElementById('userInput').disabled = true;
+  document.getElementById('inputArea').classList.remove('active');
+  document.getElementById('playBtn').textContent = '▶ PLAY';
+  document.getElementById('playBtn').classList.remove('playing');
+  setPlayStatus(false, 'READY');
+}
+
+function startNewGroup() {
+  if (settings.selectedChars.size === 0) {
+    notify('Select at least one character in Config'); return;
+  }
+  if (!session.startTime) session.startTime = Date.now();
+  currentGroup = generateGroup();
+  lastGroup = [...currentGroup];
+  isPlaying = true;
+  const inp = document.getElementById('userInput');
+  inp.value = ''; inp.disabled = false;
+  document.getElementById('inputArea').classList.add('active');
+  if (!('ontouchstart' in window)) inp.focus();
+  document.getElementById('resultBox').classList.remove('visible');
+  document.getElementById('playBtn').textContent = '⏹ STOP';
+  document.getElementById('playBtn').classList.add('playing');
+  setPlayStatus(true, 'TRANSMITTING — TYPE AS YOU HEAR');
+  document.getElementById('wpmBadge').textContent = `${settings.wpm}/${settings.fwpm} WPM`;
+  showListeningState('displayState');
+
+  playMorse(currentGroup, 'progressBar', () => {
+    if (!isPlaying) return;
+    isPlaying = false;
+    document.getElementById('playBtn').textContent = '▶ PLAY';
+    document.getElementById('playBtn').classList.remove('playing');
+    setPlayStatus(true, 'TRANSMISSION ENDED — PRESS SUBMIT');
+  });
+}
+
+function showListeningState(displayId) {
+  document.getElementById(displayId).innerHTML =
+    `<span class="listening-pulse"></span><span class="listening-msg">Listening... copy what you hear</span>`;
+}
+
+function replayLast() {
+  if (lastGroup.length === 0) { notify('Nothing to replay'); return; }
+  currentGroup = [...lastGroup];
+  isPlaying = true;
+  const inp = document.getElementById('userInput');
+  inp.disabled = false;
+  document.getElementById('inputArea').classList.add('active');
+  if (!('ontouchstart' in window)) inp.focus();
+  document.getElementById('resultBox').classList.remove('visible');
+  document.getElementById('playBtn').textContent = '⏹ STOP';
+  document.getElementById('playBtn').classList.add('playing');
+  setPlayStatus(true, 'REPLAY — TYPE AS YOU HEAR');
+  showListeningState('displayState');
+  playMorse(currentGroup, 'progressBar', () => {
+    if (!isPlaying) return;
+    isPlaying = false;
+    document.getElementById('playBtn').textContent = '▶ PLAY';
+    document.getElementById('playBtn').classList.remove('playing');
+    setPlayStatus(true, 'TRANSMISSION ENDED — PRESS SUBMIT');
+  });
+}
+
+function submitAnswer() {
+  if (currentGroup.length === 0) { notify('Nothing to submit yet'); return; }
+  if (isPlaying) {
+    stopAllAudio(); isPlaying = false;
+    document.getElementById('playBtn').textContent = '▶ PLAY';
+    document.getElementById('playBtn').classList.remove('playing');
+  }
+  document.getElementById('userInput').disabled = true;
+  document.getElementById('inputArea').classList.remove('active');
+  const raw = document.getElementById('userInput').value.trim().toUpperCase();
+  const sent = currentGroup;
+  const got = raw.split('');
+  let correct = 0;
+  const total = sent.length;
+  const results = sent.map((ch, i) => {
+    const guessed = (got[i] || '_');
+    const isOk = guessed === ch;
+    if (isOk) correct++;
+    recordCharResult(ch, isOk);
+    return { sent: ch, got: guessed, ok: isOk };
+  });
+  session.correct += correct;
+  session.total += total;
+  session.groups += 1;
+  saveData();
+  document.getElementById('displayState').innerHTML = results.map(r =>
+    `<span class="char-item ${r.ok ? 'correct' : 'wrong'}">${r.sent}</span>`).join('');
+  document.getElementById('resultChars').innerHTML = results.map(r => `
+    <div class="result-char ${r.ok ? 'ok' : 'bad'}">
+      <span class="sent">${r.sent}</span>
+      <span class="got">${r.got}</span>
+    </div>`).join('');
+  const pct = Math.round((correct / total) * 100);
+  document.getElementById('scoreRow').innerHTML = `
+    <div class="score-item"><div class="score-num ${pct >= 80 ? '' : 'bad'}">${pct}%</div><div class="score-label">Group</div></div>
+    <div class="score-item"><div class="score-num">${correct}/${total}</div><div class="score-label">Correct</div></div>
+    <div class="score-item"><div class="score-num">${session.correct}/${session.total}</div><div class="score-label">Session</div></div>`;
+  document.getElementById('resultBox').classList.add('visible');
+  setPlayStatus(false, 'PRESS PLAY FOR NEXT GROUP');
+  updateSessionDisplay();
+  updateCharGridErrors();
+}
+
+function resetSession() {
+  if (session.total > 0) { saveSessionLog('group'); notify('Session logged & reset'); }
+  session = { correct: 0, total: 0, groups: 0, startTime: null };
+  stopPlay();
+  document.getElementById('displayState').innerHTML = '<span class="listening-msg">Press PLAY to begin</span>';
+  document.getElementById('resultBox').classList.remove('visible');
+  document.getElementById('userInput').value = '';
+  document.getElementById('sessionScore').textContent = 'SESSION: 0/0';
+  document.getElementById('focusArea').style.display = 'none';
+}
+
+function setPlayStatus(playing, text) {
+  const el = document.getElementById('playIndicator');
+  el.className = 'play-indicator' + (playing ? ' playing' : '');
+  document.getElementById('playStatus').textContent = text;
+}
+
+function updateSessionDisplay() {
+  const pct = session.total > 0 ? Math.round((session.correct/session.total)*100) : 0;
+  document.getElementById('sessionScore').textContent = `SESSION: ${session.correct}/${session.total} (${pct}%)`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 10: TAB — TEXT
+// Continuous text & QSO copy. Sentence-level pauses on prosigns. Spaces
+// preserved in diff via white-space:pre-wrap.
+// ═══════════════════════════════════════════════════════════════════════════
+
+let textSettings = {
+  mode: 'plain', length: 'short', region: 'indian', recall: false
+};
+let textSession = { correct: 0, total: 0, passages: 0, startTime: null };
+let currentText = '';
+let currentTextMeta = null;
+let lastText = '';
+let lastTextMeta = null;
+let isTextPlaying = false;
+
+function setTextMode(m) {
+  textSettings.mode = m;
+  document.querySelectorAll('[data-tmode]').forEach(b =>
+    b.classList.toggle('active', b.dataset.tmode === m));
+  updateTextModeLabel();
+}
+function setTextLength(l) {
+  textSettings.length = l;
+  document.querySelectorAll('[data-tlen]').forEach(b =>
+    b.classList.toggle('active', b.dataset.tlen === l));
+}
+function setTextRegion(r) {
+  textSettings.region = r;
+  document.querySelectorAll('[data-treg]').forEach(b =>
+    b.classList.toggle('active', b.dataset.treg === r));
+}
+function toggleRecall() {
+  textSettings.recall = !textSettings.recall;
+  document.getElementById('recallToggle').classList.toggle('on', textSettings.recall);
+}
+function updateTextModeLabel() {
+  document.getElementById('textModeLabel').textContent = `MODE: ${textSettings.mode.toUpperCase()}`;
+}
+
+function toggleTextPlay() {
+  if (isTextPlaying) stopTextPlay();
+  else startNewPassage();
+}
+
+function stopTextPlay() {
+  isTextPlaying = false; stopAllAudio();
+  document.getElementById('textUserInput').disabled = true;
+  document.getElementById('textInputArea').classList.remove('active');
+  document.getElementById('textPlayBtn').textContent = '▶ PLAY';
+  document.getElementById('textPlayBtn').classList.remove('playing');
+  setTextPlayStatus(false, 'READY');
+}
+
+function startNewPassage() {
+  if (!textSession.startTime) textSession.startTime = Date.now();
+  const passage = generateTextPassage();
+  if (!passage.text) { notify('No text generated'); return; }
+  currentText = passage.text;
+  currentTextMeta = passage.meta;
+  lastText = currentText;
+  lastTextMeta = currentTextMeta;
+  isTextPlaying = true;
+  const inp = document.getElementById('textUserInput');
+  inp.value = ''; inp.disabled = false;
+  document.getElementById('textInputArea').classList.add('active');
+  if (!('ontouchstart' in window)) inp.focus();
+  document.getElementById('textResultBox').classList.remove('visible');
+  document.getElementById('recallArea').classList.remove('visible');
+  document.getElementById('textPlayBtn').textContent = '⏹ STOP';
+  document.getElementById('textPlayBtn').classList.add('playing');
+  setTextPlayStatus(true, 'TRANSMITTING — TYPE AS YOU HEAR');
+  document.getElementById('textWpmBadge').textContent = `${settings.wpm}/${settings.fwpm} WPM`;
+  showListeningState('textDisplayState');
+
+  playMorse(currentText, 'textProgressBar', () => {
+    if (!isTextPlaying) return;
+    isTextPlaying = false;
+    document.getElementById('textPlayBtn').textContent = '▶ PLAY';
+    document.getElementById('textPlayBtn').classList.remove('playing');
+    setTextPlayStatus(true, 'TRANSMISSION ENDED — PRESS SUBMIT');
+  });
+}
+
+function replayTextLast() {
+  if (!lastText) { notify('Nothing to replay'); return; }
+  currentText = lastText;
+  currentTextMeta = lastTextMeta;
+  isTextPlaying = true;
+  const inp = document.getElementById('textUserInput');
+  inp.disabled = false;
+  document.getElementById('textInputArea').classList.add('active');
+  if (!('ontouchstart' in window)) inp.focus();
+  document.getElementById('textResultBox').classList.remove('visible');
+  document.getElementById('recallArea').classList.remove('visible');
+  document.getElementById('textPlayBtn').textContent = '⏹ STOP';
+  document.getElementById('textPlayBtn').classList.add('playing');
+  setTextPlayStatus(true, 'REPLAY — TYPE AS YOU HEAR');
+  showListeningState('textDisplayState');
+  playMorse(currentText, 'textProgressBar', () => {
+    if (!isTextPlaying) return;
+    isTextPlaying = false;
+    document.getElementById('textPlayBtn').textContent = '▶ PLAY';
+    document.getElementById('textPlayBtn').classList.remove('playing');
+    setTextPlayStatus(true, 'TRANSMISSION ENDED — PRESS SUBMIT');
+  });
+}
+
+function submitTextAnswer() {
+  if (!currentText) { notify('Nothing to submit yet'); return; }
+  if (isTextPlaying) {
+    stopAllAudio(); isTextPlaying = false;
+    document.getElementById('textPlayBtn').textContent = '▶ PLAY';
+    document.getElementById('textPlayBtn').classList.remove('playing');
+  }
+  document.getElementById('textUserInput').disabled = true;
+  document.getElementById('textInputArea').classList.remove('active');
+
+  const sent = currentText.toUpperCase();
+  const got = document.getElementById('textUserInput').value.trim().toUpperCase();
+  const result = scoreText(sent, got);
+
+  result.charResults.forEach(r => {
+    if (r.sent === ' ' || !MORSE[r.sent]) return;
+    recordCharResult(r.sent, r.ok);
+  });
+
+  textSession.correct += result.correct;
+  textSession.total += result.total;
+  textSession.passages += 1;
+  saveData();
+
+  document.getElementById('textDisplayState').innerHTML = renderColorizedSent(result);
+  document.getElementById('diffSent').innerHTML = renderColorizedSent(result);
+  document.getElementById('diffTyped').innerHTML = renderColorizedTyped(result);
+
+  const pct = result.total > 0 ? Math.round((result.correct / result.total) * 100) : 0;
+  document.getElementById('textScoreRow').innerHTML = `
+    <div class="score-item"><div class="score-num ${pct >= 80 ? '' : 'bad'}">${pct}%</div><div class="score-label">Passage</div></div>
+    <div class="score-item"><div class="score-num">${result.correct}/${result.total}</div><div class="score-label">Correct</div></div>
+    <div class="score-item"><div class="score-num">${textSession.correct}/${textSession.total}</div><div class="score-label">Session</div></div>`;
+  document.getElementById('textResultBox').classList.add('visible');
+
+  if (textSettings.recall && textSettings.mode === 'qso' && currentTextMeta) {
+    showRecallQuestions();
+  }
+
+  setTextPlayStatus(false, 'PRESS PLAY FOR NEXT PASSAGE');
+  updateTextSessionDisplay();
+  updateCharGridErrors();
+}
+
+function scoreText(sent, got) {
+  const charResults = [];
+  let correct = 0, total = 0;
+  const maxLen = Math.max(sent.length, got.length);
+  for (let i = 0; i < maxLen; i++) {
+    const s = sent[i] || '';
+    const g = got[i] || '';
+    if (s === ' ' && g === ' ') {
+      charResults.push({ sent: ' ', got: ' ', ok: true, type: 'space' });
+      continue;
+    }
+    if (s === '') {
+      charResults.push({ sent: '', got: g, ok: false, type: 'extra' });
+      continue;
+    }
+    if (g === '') {
+      if (s !== ' ') total++;
+      charResults.push({ sent: s, got: '', ok: false, type: 'miss' });
+      continue;
+    }
+    if (s !== ' ') total++;
+    const ok = s === g;
+    if (ok && s !== ' ') correct++;
+    charResults.push({ sent: s, got: g, ok, type: ok ? 'ok' : 'sub' });
+  }
+  return { charResults, correct, total };
+}
+
+// CRITICAL: spaces are emitted as literal " " inside the diff-block.
+// The .diff-block CSS uses white-space: pre-wrap to preserve them.
+function renderColorizedSent(result) {
+  return result.charResults.map(r => {
+    if (r.type === 'extra') return '';
+    if (r.sent === ' ') return ' ';
+    const cls = r.ok ? 'ok' : (r.type === 'miss' ? 'miss' : 'bad');
+    return `<span class="diff-char ${cls}">${r.sent}</span>`;
+  }).join('');
+}
+
+function renderColorizedTyped(result) {
+  return result.charResults.map(r => {
+    if (r.type === 'miss') return '';
+    if (r.got === ' ') return ' ';
+    if (r.got === '') return '';
+    if (r.type === 'extra') return `<span class="diff-char extra">${r.got}</span>`;
+    const cls = r.ok ? 'ok' : 'bad';
+    return `<span class="diff-char ${cls}">${r.got}</span>`;
+  }).join('');
+}
+
+function showRecallQuestions() {
+  const m = currentTextMeta;
+  const qs = [
+    { key: 'call', label: 'Callsign?', val: m.call },
+    { key: 'name', label: 'Name?', val: m.name },
+    { key: 'qth',  label: 'QTH?',     val: m.qth },
+    { key: 'rst',  label: 'RST?',     val: m.rst }
+  ];
+  document.getElementById('recallQuestions').innerHTML = qs.map(q => `
+    <div class="recall-q">
+      <div class="recall-q-label">${q.label}</div>
+      <input type="text" id="recall-${q.key}" data-correct="${q.val}" autocomplete="off" autocapitalize="characters">
+      <div class="recall-answer" id="recall-ans-${q.key}"></div>
+    </div>
+  `).join('');
+  document.getElementById('recallArea').classList.add('visible');
+}
+
+function submitRecall() {
+  const keys = ['call','name','qth','rst'];
+  let allCorrect = true;
+  keys.forEach(k => {
+    const inp = document.getElementById('recall-' + k);
+    if (!inp) return;
+    const got = inp.value.trim().toUpperCase();
+    const correct = inp.dataset.correct;
+    const ansEl = document.getElementById('recall-ans-' + k);
+    if (got === correct) {
+      ansEl.textContent = '✓ Correct';
+      ansEl.className = 'recall-answer ok';
+    } else {
+      ansEl.textContent = `✕ Was: ${correct}`;
+      ansEl.className = 'recall-answer bad';
+      allCorrect = false;
+    }
+  });
+  notify(allCorrect ? 'Perfect recall!' : 'Recall complete — review above');
+}
+
+function resetTextSession() {
+  if (textSession.total > 0) { saveSessionLog('text'); notify('Text session logged & reset'); }
+  textSession = { correct: 0, total: 0, passages: 0, startTime: null };
+  stopTextPlay();
+  document.getElementById('textDisplayState').innerHTML = '<span class="listening-msg">Press PLAY to begin</span>';
+  document.getElementById('textResultBox').classList.remove('visible');
+  document.getElementById('recallArea').classList.remove('visible');
+  document.getElementById('textUserInput').value = '';
+  document.getElementById('textSessionScore').textContent = 'TEXT SESSION: 0/0';
+}
+
+function setTextPlayStatus(playing, text) {
+  const el = document.getElementById('textPlayIndicator');
+  el.className = 'play-indicator' + (playing ? ' playing' : '');
+  document.getElementById('textPlayStatus').textContent = text;
+}
+
+function updateTextSessionDisplay() {
+  const pct = textSession.total > 0 ? Math.round((textSession.correct/textSession.total)*100) : 0;
+  document.getElementById('textSessionScore').textContent =
+    `TEXT SESSION: ${textSession.correct}/${textSession.total} (${pct}%)`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 11: TAB — WORDS [STUB]
+// Phase C. Whole-word recognition: TNX, FB, OM, 73 as single rhythm shapes.
+// ═══════════════════════════════════════════════════════════════════════════
+// (no logic yet)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 12: TAB — SEND [STUB]
+// Phase D. Paddle simulation, dit/dah buttons, configurable arrow keys,
+// iambic mode, timing accuracy scoring.
+// ═══════════════════════════════════════════════════════════════════════════
+// (no logic yet)
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 13: TAB — CONFIG
+// Settings: speed, char selection, focus weight, timed length.
+// Char WPM warning when below 18.
+// ═══════════════════════════════════════════════════════════════════════════
+
+let settings = {
+  wpm: 20, fwpm: 12, tone: 600, groupSize: 5, focusWeight: 60,
+  selectedChars: new Set(LETTERS),
+  timedLengthMin: 10
+};
+
+function buildCharGrid() {
+  const grid = document.getElementById('charGrid');
+  grid.innerHTML = ALL_CHARS.map(c => `
+    <button class="char-btn ${settings.selectedChars.has(c) ? 'selected' : ''}"
+      id="cb-${c}" onclick="toggleChar('${c}')">${c}</button>
+  `).join('');
+  updateCharGridErrors();
+}
+
+function toggleChar(c) {
+  if (settings.selectedChars.has(c)) settings.selectedChars.delete(c);
+  else settings.selectedChars.add(c);
+  document.getElementById(`cb-${c}`).className =
+    'char-btn' + (settings.selectedChars.has(c) ? ' selected' : '');
+  updateCharGridErrors();
+  updateReflexCharCountInfo();
+}
+
+function updateCharGridErrors() {
+  ALL_CHARS.forEach(c => {
+    const btn = document.getElementById(`cb-${c}`);
+    if (!btn) return;
+    const s = data.stats[c];
+    const dot = btn.querySelector('.error-dot');
+    const accWeak = s && s.total >= 3 && (s.correct / s.total) < 0.75;
+    const rt = avgReactionTime(c);
+    const rtWeak = rt && s && s.reactionTimes.length >= 10 && rt > 800;
+    const isWeak = accWeak || rtWeak;
+    if (isWeak && !dot) {
+      const d = document.createElement('span'); d.className = 'error-dot'; btn.appendChild(d);
+    } else if (!isWeak && dot) { dot.remove(); }
+  });
+}
+
+function applyPreset(name) {
+  const presets = {
+    letters: new Set(LETTERS), numbers: new Set(NUMBERS),
+    koch5: new Set(KOCH.slice(0, 5)), koch10: new Set(KOCH.slice(0, 10)),
+    all: new Set(ALL_CHARS), none: new Set()
+  };
+  settings.selectedChars = presets[name] || new Set();
+  buildCharGrid();
+  updateReflexCharCountInfo();
+}
+
+let lastWpmWarning = 0;
+function updateSettings() {
+  const newWpm = +document.getElementById('wpmSlider').value;
+  if (newWpm < 18 && settings.wpm >= 18 && Date.now() - lastWpmWarning > 5000) {
+    notify('⚠ Char speed below 18 WPM teaches counting, not recognition');
+    document.getElementById('notification').classList.add('warn');
+    setTimeout(() => document.getElementById('notification').classList.remove('warn'), 2200);
+    lastWpmWarning = Date.now();
+  }
+  settings.wpm = newWpm;
+  settings.fwpm = Math.min(+document.getElementById('fwpmSlider').value, settings.wpm);
+  settings.tone = +document.getElementById('toneSlider').value;
+  settings.groupSize = +document.getElementById('groupSlider').value;
+  settings.focusWeight = +document.getElementById('focusSlider').value;
+  document.getElementById('wpmVal').textContent = settings.wpm;
+  document.getElementById('fwpmVal').textContent = settings.fwpm;
+  document.getElementById('toneVal').textContent = settings.tone;
+  document.getElementById('groupVal').textContent = settings.groupSize;
+  document.getElementById('focusVal').textContent = settings.focusWeight + '%';
+  document.getElementById('fwpmSlider').max = settings.wpm;
+}
+
+function setTimedLength(min) {
+  settings.timedLengthMin = min;
+  document.querySelectorAll('[data-tmin]').forEach(b =>
+    b.classList.toggle('active', +b.dataset.tmin === min));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 14: TAB — STATS
+// Overview, per-char accuracy + reaction time, session log, export/import.
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderStats() {
+  const chars = Object.keys(data.stats);
+  const totalAttempts = chars.reduce((s,c) => s + data.stats[c].total, 0);
+  const totalCorrect  = chars.reduce((s,c) => s + data.stats[c].correct, 0);
+  const overallPct    = totalAttempts > 0 ? Math.round((totalCorrect/totalAttempts)*100) : 0;
+  const weakChars     = chars.filter(c => {
+    const s = data.stats[c];
+    const accWeak = s.total >= 3 && (s.correct/s.total) < 0.75;
+    const rt = avgReactionTime(c);
+    const rtWeak = rt && s.reactionTimes.length >= 10 && rt > 800;
+    return accWeak || rtWeak;
+  });
+  const fluentChars = chars.filter(c => {
+    const rt = avgReactionTime(c);
+    return rt && data.stats[c].reactionTimes.length >= 20 && rt < 600;
+  });
+
+  document.getElementById('overviewGrid').innerHTML = `
+    <div class="stat-card ${overallPct >= 80 ? 'good' : overallPct >= 60 ? 'medium' : 'bad'}">
+      <div class="sc">${overallPct}%</div><div class="sl">Overall</div></div>
+    <div class="stat-card"><div class="sc">${totalAttempts}</div><div class="sl">Tested</div></div>
+    <div class="stat-card ${weakChars.length === 0 ? 'good' : 'bad'}">
+      <div class="sc">${weakChars.length}</div><div class="sl">Weak</div></div>
+    <div class="stat-card good"><div class="sc">${fluentChars.length}</div><div class="sl">Fluent</div></div>
+    <div class="stat-card"><div class="sc">${data.sessions.length}</div><div class="sl">Sessions</div></div>`;
+
+  if (chars.length === 0) {
+    document.getElementById('charStatsArea').innerHTML = '<div class="empty-state">No data yet. Start training!</div>';
+  } else {
+    const sorted = chars.filter(c => data.stats[c].total > 0).sort((a,b) =>
+      (data.stats[a].correct/data.stats[a].total) - (data.stats[b].correct/data.stats[b].total));
+    document.getElementById('charStatsArea').innerHTML = `<div class="char-stats-grid">${sorted.map(c => {
+      const s = data.stats[c];
+      const pct = Math.round((s.correct / s.total) * 100);
+      const color = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--amber)' : 'var(--red)';
+      const rt = avgReactionTime(c);
+      const rtStr = rt ? `${rt}ms` : '';
+      return `<div class="cs-card">
+        <div class="cs-char" style="color:${color}">${c}</div>
+        <div class="cs-bar-wrap"><div class="cs-bar" style="width:${pct}%;background:${color}"></div></div>
+        <div class="cs-pct">${pct}% (${s.total})</div>
+        ${rtStr ? `<div class="cs-rt">${rtStr}</div>` : ''}
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  if (data.sessions.length === 0) {
+    document.getElementById('sessionLogArea').innerHTML = '<div class="empty-state">No sessions logged yet.</div>';
+  } else {
+    const recent = [...data.sessions].reverse().slice(0, 30);
+    document.getElementById('sessionLogArea').innerHTML = `<div class="session-log">${recent.map(s => {
+      const pct = s.total > 0 ? Math.round((s.correct/s.total)*100) : 0;
+      const cls = pct >= 80 ? 'good' : pct >= 60 ? 'medium' : 'bad';
+      const date = new Date(s.timestamp);
+      const dStr = date.toLocaleDateString([], {month:'short',day:'numeric'}) + ' ' +
+                   date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      const kindLabel = ({group:'GRP', text:'TXT', reflex:'RFX', word:'WRD', send:'SND'})[s.kind] || s.kind.toUpperCase();
+      return `<div class="session-log-row">
+        <span class="slr-time">${dStr} <span class="slr-mode">${kindLabel}</span></span>
+        <span class="slr-stat">${s.correct}/${s.total}</span>
+        <span class="slr-wpm">${s.wpm}/${s.fwpm}</span>
+        <span class="slr-pct ${cls}">${pct}%</span></div>`;
+    }).join('')}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 15: CROSS-CUTTING — SESSION LOG, STREAK, EXPORT/IMPORT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function saveSessionLog(kind) {
+  const s = kind === 'text' ? textSession : session;
+  if (s.total === 0) return;
+  data.sessions.push({
+    timestamp: Date.now(), kind,
+    correct: s.correct, total: s.total,
+    units: kind === 'text' ? s.passages : s.groups,
+    wpm: settings.wpm, fwpm: settings.fwpm,
+    chars: kind === 'text' ? textSettings.mode : [...settings.selectedChars].join('')
+  });
+  if (data.sessions.length > 200) data.sessions = data.sessions.slice(-200);
+  saveData();
+  updateStreakDisplay();
+}
+
+function updateStreakDisplay() {
+  // Count days with at least one session in the last 30 days
+  const now = new Date();
+  const days = new Set();
+  data.sessions.forEach(s => {
+    const d = new Date(s.timestamp);
+    if (now - d < 30 * 24 * 3600 * 1000) {
+      days.add(d.toDateString());
+    }
+  });
+  // Calculate current streak
+  let streak = 0;
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    if (days.has(d.toDateString())) streak++;
+    else if (i > 0) break; // gap = streak ends (today not yet practiced is OK)
+  }
+  const el = document.getElementById('streakDisplay');
+  if (streak > 1) {
+    el.style.display = 'inline';
+    el.textContent = `🔥 ${streak}d`;
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function exportData() {
+  const exportObj = {
+    app: 'cw-trainer', version: 2,
+    exportedAt: new Date().toISOString(),
+    stats: data.stats, sessions: data.sessions,
+    progress: data.progress
+  };
+  const json = JSON.stringify(exportObj, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cw-trainer-${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+  notify('Exported — save to Drive/Dropbox');
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported.stats && !imported.sessions) { notify('Invalid file format'); return; }
+      if (imported.stats) {
+        Object.keys(imported.stats).forEach(c => {
+          if (!data.stats[c]) data.stats[c] = {correct:0, total:0, reactionTimes: [], lastSeen: 0};
+          data.stats[c].correct += imported.stats[c].correct || 0;
+          data.stats[c].total   += imported.stats[c].total   || 0;
+          if (Array.isArray(imported.stats[c].reactionTimes)) {
+            data.stats[c].reactionTimes = data.stats[c].reactionTimes.concat(imported.stats[c].reactionTimes).slice(-50);
+          }
+        });
+      }
+      if (imported.sessions && Array.isArray(imported.sessions)) {
+        const existing = new Set(data.sessions.map(s => s.timestamp));
+        imported.sessions.forEach(s => { if (!existing.has(s.timestamp)) data.sessions.push(s); });
+        data.sessions.sort((a,b) => a.timestamp - b.timestamp);
+        if (data.sessions.length > 200) data.sessions = data.sessions.slice(-200);
+      }
+      saveData(); renderStats(); updateCharGridErrors(); updateStreakDisplay();
+      notify('Imported & merged successfully');
+    } catch (err) { notify('Import error: ' + err.message); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function clearStats() {
+  if (!confirm('Clear ALL stats and session logs? This cannot be undone.')) return;
+  data = { version: 2, stats: {}, sessions: [], progress: { phase: 1, completedDrills: [] } };
+  saveData();
+  session = { correct: 0, total: 0, groups: 0, startTime: null };
+  textSession = { correct: 0, total: 0, passages: 0, startTime: null };
+  renderStats(); updateCharGridErrors(); updateSessionDisplay(); updateTextSessionDisplay();
+  updateStreakDisplay();
+  notify('All data cleared');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 16: TAB ROUTING + KEYBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'stats') renderStats();
+  if (name === 'reflex') updateReflexCharCountInfo();
+}
+
+document.addEventListener('keydown', e => {
+  // Reflex tab — number keys 1-4 trigger button taps
+  if (reflexState && !reflexState.answered && document.querySelector('.panel.active').id === 'panel-reflex') {
+    const num = parseInt(e.key, 10);
+    if (num >= 1 && num <= 4 && reflexState.options[num - 1]) {
+      e.preventDefault();
+      reflexAnswer(reflexState.options[num - 1]);
+      return;
+    }
+  }
+  if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    const activePanel = document.querySelector('.panel.active').id;
+    if (activePanel === 'panel-text') toggleTextPlay();
+    else if (activePanel === 'panel-trainer') togglePlay();
+  }
+});
+
+document.getElementById('userInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); submitAnswer(); }
+});
+document.getElementById('textUserInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitTextAnswer(); }
+});
+
+window.addEventListener('beforeunload', () => {
+  if (session.total > 0) saveSessionLog('group');
+  if (textSession.total > 0) saveSessionLog('text');
+});
+window.addEventListener('pagehide', () => {
+  if (session.total > 0) saveSessionLog('group');
+  if (textSession.total > 0) saveSessionLog('text');
+});
+
+let lastTouch = 0;
+document.addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - lastTouch < 300 && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') e.preventDefault();
+  lastTouch = now;
+}, { passive: false });
+
+// Notifications
+let notifTimeout;
+function notify(msg) {
+  const el = document.getElementById('notification');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(notifTimeout);
+  notifTimeout = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 17: INIT
+// ═══════════════════════════════════════════════════════════════════════════
+
+buildCharGrid();
+updateSettings();
+renderStats();
+updateTextModeLabel();
+updateStreakDisplay();
+updateReflexCharCountInfo();
+
+document.body.addEventListener('touchstart', () => {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}, { passive: true });
+</script>
+</body>
+</html>
