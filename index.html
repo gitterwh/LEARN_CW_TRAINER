@@ -912,8 +912,8 @@
 
   <div class="section-label">── Mode ──</div>
   <div class="preset-row" id="textModeRow">
-    <button class="preset-btn" data-tmode="randchars" onclick="setTextMode('randchars')">Rand Chars</button>
-    <button class="preset-btn active" data-tmode="plain" onclick="setTextMode('plain')">Plain</button>
+    <button class="preset-btn active" data-tmode="randchars" onclick="setTextMode('randchars')">Random Chars</button>
+    <button class="preset-btn" data-tmode="plain" onclick="setTextMode('plain')">Plain</button>
     <button class="preset-btn" data-tmode="qso" onclick="setTextMode('qso')">QSO</button>
     <button class="preset-btn" data-tmode="callsign" onclick="setTextMode('callsign')">Callsign</button>
     <button class="preset-btn" data-tmode="mixed" onclick="setTextMode('mixed')">Mixed</button>
@@ -2344,17 +2344,7 @@ function submitTextAnswer() {
 
   setTextPlayStatus(false, 'PRESS PLAY FOR NEXT PASSAGE');
 
-  // Timed mode: auto-start next passage after a brief pause unless time is up
-  if (timedSessionEnd) {
-    if (Date.now() >= timedSessionEnd) {
-      endTimedSession();
-    } else {
-      setTimeout(() => {
-        if (timedSessionEnd) startNewPassage();
-      }, 1500);
-    }
-  }
-  
+ 
   updateTextSessionDisplay();
   updateCharGridErrors();
 }
@@ -2702,8 +2692,8 @@ function restoreSettings() {
   if (Array.isArray(s.selectedChars) && s.selectedChars.length > 0) {
     settings.selectedChars = new Set(s.selectedChars);
   }
-  textSettings.mode = s.textMode ?? 'plain';
-  textSettings.length = s.textLengthMin ?? 5;
+  textSettings.mode = s.textMode ?? 'randchars';
+  textSettings.lengthMin = s.textLengthMin ?? 5;
   textSettings.region = s.textRegion ?? 'indian';
   textSettings.recall = s.textRecall ?? false;
   reflexConfig.roundSize = s.reflexRoundSize ?? 20;
@@ -2718,7 +2708,7 @@ function restoreSettings() {
   document.querySelectorAll('[data-tmode]').forEach(b =>
     b.classList.toggle('active', b.dataset.tmode === textSettings.mode));
   document.querySelectorAll('[data-tlen]').forEach(b =>
-    b.classList.toggle('active', b.dataset.tlen === textSettings.length));
+    b.classList.toggle('active', +b.dataset.tlen === textSettings.lengthMin));
   document.querySelectorAll('[data-treg]').forEach(b =>
     b.classList.toggle('active', b.dataset.treg === textSettings.region));
   document.getElementById('recallToggle').classList.toggle('on', textSettings.recall);
