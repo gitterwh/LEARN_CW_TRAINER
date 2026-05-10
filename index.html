@@ -90,6 +90,42 @@
     pointer-events: none; z-index: 9999;
   }
 
+ /* Welcome modal */
+.welcome-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10,14,10,0.92);
+  z-index: 10000;
+  display: none;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+.welcome-overlay.visible { display: flex; }
+.welcome-modal {
+  background: var(--surface);
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 0 40px rgba(0,255,65,0.2);
+}
+.welcome-modal h2 {
+  font-family: 'Orbitron', monospace;
+  color: var(--green);
+  font-size: 1.3rem;
+  letter-spacing: 0.15em;
+  margin-bottom: 14px;
+  text-shadow: 0 0 15px var(--green);
+}
+.welcome-modal p {
+  font-size: 0.78rem;
+  color: var(--text);
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+.welcome-modal strong { color: var(--green); }
+.welcome-modal .btn { margin-top: 10px; }
+  
   /* ─── Header ─── */
   .header {
     padding: 14px 18px 10px; border-bottom: 1px solid var(--border);
@@ -655,6 +691,7 @@
   margin-bottom: 12px;
 }
 .learn-morse {
+  display: none;
   font-family: 'Orbitron', monospace;
   font-size: 1.6rem;
   letter-spacing: 0.3em;
@@ -676,7 +713,22 @@
 <!-- ═══════════════════════════════════════════════════════════════════════════
      SECTION 1: HTML
      ═══════════════════════════════════════════════════════════════════════════ -->
-<div class="header">
+
+  <div class="welcome-overlay" id="welcomeOverlay">
+  <div class="welcome-modal">
+    <h2>WELCOME</h2>
+    <p>A focused tool to learn Morse code by ear — the way fluent operators actually decode.</p>
+    <p>Start in <strong>📚 Learn</strong> — meet each character as a memorable sound shape.</p>
+    <p>Then drill in <strong>⚡ Reflex</strong> — hear it, tap it, in under a second. Builds instant recognition.</p>
+    <p>Use <strong>▶ Train</strong> for typing groups, <strong>📡 Text</strong> for QSO-style passages and timed sessions.</p>
+    <p>Your data stays on your device. Export to JSON in <strong>📊 Stats</strong> to sync between phone and desktop.</p>
+    <button class="btn primary" onclick="dismissWelcome()" style="width:100%">GOT IT — LET'S GO</button>
+  </div>
+</div>
+  
+  
+  
+  <div class="header">
   <div class="logo">CW<span>.</span>TRAIN</div>
   <div class="header-meta">
     <span class="streak" id="streakDisplay" style="display:none"></span>
@@ -685,9 +737,9 @@
 </div>
 
 <div class="tabs">
-  <div class="tab" data-tab="learn" onclick="switchTab('learn')">📚 Learn</div>
+  <div class="tab active" data-tab="learn" onclick="switchTab('learn')">📚 Learn</div>
   <div class="tab" data-tab="reflex" onclick="switchTab('reflex')">⚡ Reflex</div>
-  <div class="tab active" data-tab="trainer" onclick="switchTab('trainer')">▶ Train</div>
+  <div class="tab" data-tab="trainer" onclick="switchTab('trainer')">▶ Train</div>
   <div class="tab" data-tab="text" onclick="switchTab('text')">📡 Text</div>
   <div class="tab" data-tab="words" onclick="switchTab('words')">🔤 Words</div>
   <div class="tab stub" data-tab="send" onclick="switchTab('send')">🎹 Send</div>
@@ -697,7 +749,7 @@
 </div>
 
 <!-- ─── PANEL: LEARN [STUB] ─── -->
-<div class="panel" id="panel-learn">
+<div class="panel active" id="panel-learn">
   <div class="session-info">
     <span>📚 LEARN — Phase 1: Sound Shapes</span>
   </div>
@@ -811,7 +863,7 @@
 </div>
 
 <!-- ─── PANEL: TRAIN ─── -->
-<div class="panel active" id="panel-trainer">
+<div class="panel" id="panel-trainer">
   <div class="session-info">
     <span id="sessionScore">SESSION: 0/0</span>
     <span id="focusInfo"></span>
@@ -822,13 +874,7 @@
     <div class="focus-chars" id="focusChars"></div>
   </div>
 
-  <div class="trainer-display">
-    <div class="wpm-badge" id="wpmBadge">-- WPM</div>
-    <div class="display-state" id="displayState">
-      <span class="listening-msg">Press PLAY to begin</span>
-    </div>
-  </div>
-
+  
   <div class="play-indicator" id="playIndicator">
     <div class="pi-dot"></div>
     <span id="playStatus">READY</span>
@@ -866,18 +912,32 @@
 
   <div class="section-label">── Mode ──</div>
   <div class="preset-row" id="textModeRow">
+    <button class="preset-btn" data-tmode="randchars" onclick="setTextMode('randchars')">Rand Chars</button>
     <button class="preset-btn active" data-tmode="plain" onclick="setTextMode('plain')">Plain</button>
     <button class="preset-btn" data-tmode="qso" onclick="setTextMode('qso')">QSO</button>
     <button class="preset-btn" data-tmode="callsign" onclick="setTextMode('callsign')">Callsign</button>
     <button class="preset-btn" data-tmode="mixed" onclick="setTextMode('mixed')">Mixed</button>
   </div>
 
-  <div class="section-label">── Length ──</div>
-  <div class="preset-row" id="textLengthRow">
-    <button class="preset-btn active" data-tlen="short" onclick="setTextLength('short')">Short</button>
-    <button class="preset-btn" data-tlen="medium" onclick="setTextLength('medium')">Medium</button>
-    <button class="preset-btn" data-tlen="long" onclick="setTextLength('long')">Long</button>
-  </div>
+ <div class="section-label">── Length ──</div>
+<div class="preset-row" id="textLengthRow">
+  <button class="preset-btn" data-tlen="1" onclick="setTextLength(1)">1m</button>
+  <button class="preset-btn" data-tlen="2" onclick="setTextLength(2)">2m</button>
+  <button class="preset-btn active" data-tlen="5" onclick="setTextLength(5)">5m</button>
+  <button class="preset-btn" data-tlen="10" onclick="setTextLength(10)">10m</button>
+  <button class="preset-btn" data-tlen="15" onclick="setTextLength(15)">15m</button>
+  <button class="preset-btn" data-tlen="20" onclick="setTextLength(20)">20m</button>
+  <button class="preset-btn" data-tlen="30" onclick="setTextLength(30)">30m</button>
+  <button class="preset-btn" data-tlen="custom" onclick="setTextLengthCustom()">Custom</button>
+</div>
+<div class="row" id="customLengthRow" style="display:none">
+  <label>Minutes (1–60)</label>
+  <input type="number" id="customLengthInput" min="1" max="60" value="5"
+    style="flex:1;background:var(--surface2);border:1px solid var(--border);
+           color:var(--amber);font-family:'Orbitron',monospace;font-size:1rem;
+           padding:6px 10px;border-radius:3px;outline:none"
+    oninput="onCustomLengthInput()">
+</div>
 
   <div class="section-label">── Region ──</div>
   <div class="preset-row" id="textRegionRow">
@@ -891,12 +951,6 @@
     <div class="toggle" id="recallToggle" onclick="toggleRecall()"></div>
   </div>
 
-  <div class="trainer-display">
-    <div class="wpm-badge" id="textWpmBadge">-- WPM</div>
-    <div class="display-state text-mode" id="textDisplayState">
-      <span class="listening-msg">Press PLAY to begin</span>
-    </div>
-  </div>
 
   <div class="play-indicator" id="textPlayIndicator">
     <div class="pi-dot"></div>
@@ -1029,18 +1083,6 @@
   <div class="info-text">
     Weak characters appear more often when focus weight &gt; 0. A character is "weak" if accuracy &lt; 75% (after 3+ attempts) <em>or</em> reflex reaction time &gt; 800ms (after 10+ attempts).
   </div>
-
-  <div class="section-label">── Timed Sessions ──</div>
-  <div class="preset-row" id="timedLengthRow">
-    <button class="preset-btn" data-tmin="5" onclick="setTimedLength(5)">5 min</button>
-    <button class="preset-btn active" data-tmin="10" onclick="setTimedLength(10)">10 min</button>
-    <button class="preset-btn" data-tmin="15" onclick="setTimedLength(15)">15 min</button>
-    <button class="preset-btn" data-tmin="20" onclick="setTimedLength(20)">20 min</button>
-    <button class="preset-btn" data-tmin="30" onclick="setTimedLength(30)">30 min</button>
-  </div>
-  <div class="info-text">
-    Timed sessions run continuously until time expires, then show a comprehensive summary. Available in Train tab via the ⏱ TIMED button.
-  </div>
 </div>
 
 <!-- ─── PANEL: STATS ─── -->
@@ -1150,7 +1192,10 @@
   <div class="info-text" style="font-size:0.7rem;line-height:1.6">
     CW Trainer — single-page web app, runs offline after first load. All your data stays on your device.
     <br><br>
-    Made for hams, by hams. 73!
+    <a onclick="showWelcome()" style="color:var(--green);cursor:pointer;text-decoration:underline">Show welcome screen again</a>
+  <br><br>
+    
+    Made for hams, by a ham. 73!
   </div>
 </div>  
 
@@ -1537,24 +1582,35 @@ function genPlainText(wordCount) {
 }
 
 function generateTextPassage() {
-  const lengthMap = {
-    short:  { plain: 5,  qso: 1, callsign: 4,  mixed: 1 },
-    medium: { plain: 12, qso: 2, callsign: 8,  mixed: 2 },
-    long:   { plain: 25, qso: 3, callsign: 15, mixed: 3 }
+  // Sizes per single passage. Loop calls this repeatedly until time expires.
+  const sizes = {
+    plain: 8, qso: 1, callsign: 6, mixed: 1, randchars: 1
   };
-  const counts = lengthMap[textSettings.length];
-  if (textSettings.mode === 'plain')    return { text: genPlainText(counts.plain), meta: null };
-  if (textSettings.mode === 'qso')      return genQSO(counts.qso);
-  if (textSettings.mode === 'callsign') return { text: genCallsignBurst(counts.callsign), meta: null };
+  const n = sizes[textSettings.mode] || 5;
+  if (textSettings.mode === 'plain')    return { text: genPlainText(n), meta: null };
+  if (textSettings.mode === 'qso')      return genQSO(2);
+  if (textSettings.mode === 'callsign') return { text: genCallsignBurst(n), meta: null };
   if (textSettings.mode === 'mixed') {
-    const parts = [];
-    parts.push(genCallsignBurst(randInt(2, 4)));
-    parts.push(genPlainText(randInt(3, 6)));
-    if (counts.mixed >= 2) parts.push(genQSO(1).text);
+    const parts = [genCallsignBurst(randInt(2,4)), genPlainText(randInt(3,6))];
+    if (Math.random() < 0.5) parts.push(genQSO(1).text);
     return { text: parts.join(' '), meta: null };
+  }
+  if (textSettings.mode === 'randchars') {
+    // LCWO-style: 5-char random groups from selected chars in Config
+    const pool = getWeightedChars();
+    if (pool.length === 0) return { text: '', meta: null };
+    const groups = [];
+    const numGroups = randInt(4, 8); // a handful per passage
+    for (let g = 0; g < numGroups; g++) {
+      let grp = '';
+      for (let i = 0; i < 5; i++) grp += rand(pool);
+      groups.push(grp);
+    }
+    return { text: groups.join(' '), meta: null };
   }
   return { text: '', meta: null };
 }
+  
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION 7: TAB — LEARN [STUB]
@@ -1605,7 +1661,6 @@ const PHONETICS = {
 
 let learnState = {
   currentChar: null,
-  exposureCount: 0,    // how many times shown this session
   introduced: new Set(JSON.parse(localStorage.getItem('cwLearnIntroduced') || '[]'))
 };
 
@@ -1624,7 +1679,6 @@ function startLearnSession() {
     return;
   }
   learnState.currentChar = c;
-  learnState.exposureCount = 0;
   renderLearnCard();
 }
 
@@ -1640,7 +1694,7 @@ function renderLearnCard() {
       <div class="learn-phonetic">${phon}</div>
       <div class="learn-controls">
         <button class="btn primary" onclick="playLearnChar()">▶ HEAR IT</button>
-        <button class="btn" onclick="learnGotIt()">✓ GOT IT (${learnState.exposureCount}/5)</button>
+        <button class="btn" onclick="learnGotIt()">✓ GOT IT — NEXT</button>
       </div>
     </div>
   `;
@@ -1653,17 +1707,11 @@ function playLearnChar() {
 }
 
 function learnGotIt() {
-  learnState.exposureCount++;
-  if (learnState.exposureCount >= 5) {
-    learnState.introduced.add(learnState.currentChar);
-    localStorage.setItem('cwLearnIntroduced',
-      JSON.stringify([...learnState.introduced]));
-    notify(`✓ ${learnState.currentChar} introduced. Practice it in Reflex.`);
-    // TODO: trigger spaced-repetition recall test before final lock-in
-    startLearnSession(); // move to next char
-  } else {
-    renderLearnCard();
-  }
+  // Single tap advances — character is marked introduced immediately
+  learnState.introduced.add(learnState.currentChar);
+  localStorage.setItem('cwLearnIntroduced', JSON.stringify([...learnState.introduced]));
+  notify(`✓ ${learnState.currentChar} introduced — practice it in Reflex`);
+  startLearnSession(); // move to next char
 }
 
 // TODO Phase C completion:
@@ -2089,7 +2137,7 @@ function updateSessionDisplay() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 let textSettings = {
-  mode: 'plain', length: 'short', region: 'indian', recall: false
+  mode: 'randchars', lengthMin: 5, region: 'indian', recall: false
 };
 let textSession = { correct: 0, total: 0, passages: 0, startTime: null };
 let currentText = '';
@@ -2105,12 +2153,28 @@ function setTextMode(m) {
   updateTextModeLabel();
   persistSettings();
 }
-function setTextLength(l) {
-  textSettings.length = l;
+  
+function setTextLength(min) {
+  textSettings.lengthMin = +min;
   document.querySelectorAll('[data-tlen]').forEach(b =>
-    b.classList.toggle('active', b.dataset.tlen === l));
+    b.classList.toggle('active', +b.dataset.tlen === +min));
+  document.getElementById('customLengthRow').style.display = 'none';
   persistSettings();
 }
+
+function setTextLengthCustom() {
+  document.querySelectorAll('[data-tlen]').forEach(b =>
+    b.classList.toggle('active', b.dataset.tlen === 'custom'));
+  document.getElementById('customLengthRow').style.display = 'flex';
+  onCustomLengthInput();
+}
+  
+function onCustomLengthInput() {
+  const v = Math.max(1, Math.min(60, +document.getElementById('customLengthInput').value || 5));
+  textSettings.lengthMin = v;
+  persistSettings();
+}
+  
 function setTextRegion(r) {
   textSettings.region = r;
   document.querySelectorAll('[data-treg]').forEach(b =>
@@ -2132,6 +2196,8 @@ function toggleTextPlay() {
 }
 
 function stopTextPlay() {
+  if (timedTimerInterval) { clearInterval(timedTimerInterval); timedTimerInterval = null; }
+timedSessionEnd = null;
   isTextPlaying = false; stopAllAudio();
   document.getElementById('textUserInput').disabled = true;
   document.getElementById('textInputArea').classList.remove('active');
@@ -2140,26 +2206,42 @@ function stopTextPlay() {
   setTextPlayStatus(false, 'READY');
 }
 
+let timedSessionEnd = null;  // Date.now() value when session expires
+let timedSessionStart = null;
+let timedTimerInterval = null;
+
 function startNewPassage() {
-  if (!textSession.startTime) textSession.startTime = Date.now();
+  if (settings.selectedChars.size === 0 && textSettings.mode === 'randchars') {
+    notify('Select characters in Config'); return;
+  }
+
+  // If lengthMin > 1, treat as a timed continuous session
+  const isTimed = textSettings.lengthMin >= 1;
+  if (isTimed && !timedSessionEnd) {
+    timedSessionStart = Date.now();
+    timedSessionEnd = timedSessionStart + textSettings.lengthMin * 60 * 1000;
+    textSession = { correct: 0, total: 0, passages: 0, startTime: timedSessionStart };
+    startTimedTicker();
+  }
+
   const passage = generateTextPassage();
-  if (!passage.text) { notify('No text generated'); return; }
+  if (!passage.text) { notify('No text generated'); endTimedSession(); return; }
   currentText = passage.text;
   currentTextMeta = passage.meta;
   lastText = currentText;
   lastTextMeta = currentTextMeta;
   isTextPlaying = true;
+
   const inp = document.getElementById('textUserInput');
   inp.value = ''; inp.disabled = false;
   document.getElementById('textInputArea').classList.add('active');
-  if (!('ontouchstart' in window)) inp.focus();
+  setTimeout(() => inp.focus(), 50);
+
   document.getElementById('textResultBox').classList.remove('visible');
   document.getElementById('recallArea').classList.remove('visible');
   document.getElementById('textPlayBtn').textContent = '⏹ STOP';
   document.getElementById('textPlayBtn').classList.add('playing');
   setTextPlayStatus(true, 'TRANSMITTING — TYPE AS YOU HEAR');
-  document.getElementById('textWpmBadge').textContent = `${settings.wpm}/${settings.fwpm} WPM`;
-  showListeningState('textDisplayState');
 
   playMorse(currentText, 'textProgressBar', () => {
     if (!isTextPlaying) return;
@@ -2168,6 +2250,35 @@ function startNewPassage() {
     document.getElementById('textPlayBtn').classList.remove('playing');
     setTextPlayStatus(true, 'TRANSMISSION ENDED — PRESS SUBMIT');
   });
+}
+
+function startTimedTicker() {
+  if (timedTimerInterval) clearInterval(timedTimerInterval);
+  timedTimerInterval = setInterval(() => {
+    const remaining = Math.max(0, timedSessionEnd - Date.now());
+    const mm = Math.floor(remaining / 60000);
+    const ss = Math.floor((remaining % 60000) / 1000).toString().padStart(2, '0');
+    document.getElementById('textSessionScore').textContent = `⏱ ${mm}:${ss} — ${textSession.correct}/${textSession.total}`;
+    if (remaining === 0) {
+      // Time up — let current passage finish, then end
+      if (!isTextPlaying) endTimedSession();
+    }
+  }, 250);
+}
+
+function endTimedSession() {
+  if (timedTimerInterval) { clearInterval(timedTimerInterval); timedTimerInterval = null; }
+  timedSessionEnd = null;
+  timedSessionStart = null;
+  // Show summary
+  const minutes = textSettings.lengthMin;
+  const cwpm = textSession.total > 0
+    ? Math.round((textSession.correct / 5) / minutes * 10) / 10
+    : 0;
+  notify(`Session done: ${textSession.correct}/${textSession.total} (~${cwpm} effective WPM)`);
+  saveSessionLog('text');
+  textSession = { correct: 0, total: 0, passages: 0, startTime: null };
+  document.getElementById('textSessionScore').textContent = 'TEXT SESSION: 0/0';
 }
 
 function replayTextLast() {
@@ -2184,8 +2295,7 @@ function replayTextLast() {
   document.getElementById('textPlayBtn').textContent = '⏹ STOP';
   document.getElementById('textPlayBtn').classList.add('playing');
   setTextPlayStatus(true, 'REPLAY — TYPE AS YOU HEAR');
-  showListeningState('textDisplayState');
-  playMorse(currentText, 'textProgressBar', () => {
+   playMorse(currentText, 'textProgressBar', () => {
     if (!isTextPlaying) return;
     isTextPlaying = false;
     document.getElementById('textPlayBtn').textContent = '▶ PLAY';
@@ -2218,7 +2328,6 @@ function submitTextAnswer() {
   textSession.passages += 1;
   saveData();
 
-  document.getElementById('textDisplayState').innerHTML = renderColorizedSent(result);
   document.getElementById('diffSent').innerHTML = renderColorizedSent(result);
   document.getElementById('diffTyped').innerHTML = renderColorizedTyped(result);
 
@@ -2234,6 +2343,18 @@ function submitTextAnswer() {
   }
 
   setTextPlayStatus(false, 'PRESS PLAY FOR NEXT PASSAGE');
+
+  // Timed mode: auto-start next passage after a brief pause unless time is up
+  if (timedSessionEnd) {
+    if (Date.now() >= timedSessionEnd) {
+      endTimedSession();
+    } else {
+      setTimeout(() => {
+        if (timedSessionEnd) startNewPassage();
+      }, 1500);
+    }
+  }
+  
   updateTextSessionDisplay();
   updateCharGridErrors();
 }
@@ -2328,10 +2449,11 @@ function submitRecall() {
 }
 
 function resetTextSession() {
+  if (timedTimerInterval) { clearInterval(timedTimerInterval); timedTimerInterval = null; }
+timedSessionEnd = null;
   if (textSession.total > 0) { saveSessionLog('text'); notify('Text session logged & reset'); }
   textSession = { correct: 0, total: 0, passages: 0, startTime: null };
   stopTextPlay();
-  document.getElementById('textDisplayState').innerHTML = '<span class="listening-msg">Press PLAY to begin</span>';
   document.getElementById('textResultBox').classList.remove('visible');
   document.getElementById('recallArea').classList.remove('visible');
   document.getElementById('textUserInput').value = '';
@@ -2546,12 +2668,6 @@ function updateSettings() {
   persistSettings();
 }
 
-function setTimedLength(min) {
-  settings.timedLengthMin = min;
-  document.querySelectorAll('[data-tmin]').forEach(b =>
-    b.classList.toggle('active', +b.dataset.tmin === min));
-  persistSettings();
-}
 
 // Persist settings to localStorage. Called whenever Config or text/reflex settings change.
 function persistSettings() {
@@ -2562,10 +2678,9 @@ function persistSettings() {
     groupSize: settings.groupSize,
     focusWeight: settings.focusWeight,
     selectedChars: [...settings.selectedChars],
-    timedLengthMin: settings.timedLengthMin,
     theme: settings.theme || 'dark',
     textMode: textSettings.mode,
-    textLength: textSettings.length,
+    textLength: textSettings.lengthMin,
     textRegion: textSettings.region,
     textRecall: textSettings.recall,
     reflexRoundSize: reflexConfig.roundSize,
@@ -2583,13 +2698,12 @@ function restoreSettings() {
   settings.tone = s.tone ?? 600;
   settings.groupSize = s.groupSize ?? 5;
   settings.focusWeight = s.focusWeight ?? 60;
-  settings.timedLengthMin = s.timedLengthMin ?? 10;
   settings.theme = s.theme ?? 'dark';
   if (Array.isArray(s.selectedChars) && s.selectedChars.length > 0) {
     settings.selectedChars = new Set(s.selectedChars);
   }
   textSettings.mode = s.textMode ?? 'plain';
-  textSettings.length = s.textLength ?? 'short';
+  textSettings.length = s.textLengthMin ?? 5;
   textSettings.region = s.textRegion ?? 'indian';
   textSettings.recall = s.textRecall ?? false;
   reflexConfig.roundSize = s.reflexRoundSize ?? 20;
@@ -2601,8 +2715,6 @@ function restoreSettings() {
   document.getElementById('toneSlider').value = settings.tone;
   document.getElementById('groupSlider').value = settings.groupSize;
   document.getElementById('focusSlider').value = settings.focusWeight;
-  document.querySelectorAll('[data-tmin]').forEach(b =>
-    b.classList.toggle('active', +b.dataset.tmin === settings.timedLengthMin));
   document.querySelectorAll('[data-tmode]').forEach(b =>
     b.classList.toggle('active', b.dataset.tmode === textSettings.mode));
   document.querySelectorAll('[data-tlen]').forEach(b =>
@@ -2798,6 +2910,17 @@ function clearStats() {
 // SECTION 16: TAB ROUTING + KEYBOARD
 // ═══════════════════════════════════════════════════════════════════════════
 
+function showWelcome() {
+  document.getElementById('welcomeOverlay').classList.add('visible');
+}
+function dismissWelcome() {
+  document.getElementById('welcomeOverlay').classList.remove('visible');
+  localStorage.setItem('cwWelcomeSeen', '1');
+}
+function maybeShowWelcome() {
+  if (!localStorage.getItem('cwWelcomeSeen')) showWelcome();
+}
+  
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t =>
     t.classList.toggle('active', t.dataset.tab === name));
@@ -2839,8 +2962,17 @@ document.addEventListener('keydown', e => {
 });
 
 document.getElementById('userInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); submitAnswer(); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    // If result is currently visible → Enter starts next group
+    if (document.getElementById('resultBox').classList.contains('visible')) {
+      startNewGroup();
+    } else {
+      submitAnswer();
+    }
+  }
 });
+  
 document.getElementById('textUserInput').addEventListener('keydown', e => {
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); submitTextAnswer(); }
 });
@@ -2887,6 +3019,11 @@ applyTheme();               // ← NEW for #6
 document.body.addEventListener('touchstart', () => {
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 }, { passive: true });
+
+// Land on Learn tab by default; show welcome on first visit
+switchTab('learn');
+maybeShowWelcome();
+
 </script>
 </body>
 </html>
