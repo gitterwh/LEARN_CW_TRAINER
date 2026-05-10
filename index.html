@@ -918,8 +918,8 @@
     <button class="preset-btn" data-tmode="callsign" onclick="setTextMode('callsign')">Callsign</button>
     <button class="preset-btn" data-tmode="mixed" onclick="setTextMode('mixed')">Mixed</button>
   </div>
-
- <div class="section-label">── Length ──</div>
+  
+<div class="section-label" data-section="length">── Length ──</div>
 <div class="preset-row" id="textLengthRow">
   <button class="preset-btn" data-tlen="1" onclick="setTextLength(1)">1m</button>
   <button class="preset-btn" data-tlen="2" onclick="setTextLength(2)">2m</button>
@@ -1560,13 +1560,30 @@ function genQSO(level) {
 }
 
 function genPlainText(wordCount) {
+  // Strict mode: filter the word pool to only words whose every letter
+  // is in the user's Config selection. Falls back to random-letter
+  // gibberish if the filtered pool is too small.
+  const allowed = settings.selectedChars;
+  const fullPool = WORDS.concat(ABBREVS);
+
+  // Filter pool: every char of word must be in allowed set
+  const filtered = fullPool.filter(w =>
+    [...w].every(c => allowed.has(c))
+  );
+
+  // If filtered pool is too small (< 5 valid words), fall back entirely
+  // to gibberish words built from selected chars
+  const useGibberish = filtered.length < 5;
+
   const weak = getWeakChars();
   const focusW = settings.focusWeight / 100;
-  const pool = WORDS.concat(ABBREVS);
+  const charArr = [...allowed];
   const words = [];
+
   for (let i = 0; i < wordCount; i++) {
+    // 50% × focus weight chance to inject a weak-char-rich word
     if (weak.length > 0 && Math.random() < focusW * 0.5) {
-      const charSet = [...new Set(weak.concat([...settings.selectedChars]))];
+      const charSet = [...new Set(weak.concat(charArr))];
       const len = randInt(2, 5);
       let w = '';
       for (let j = 0; j < len; j++) {
@@ -1574,8 +1591,15 @@ function genPlainText(wordCount) {
         w += useWeak ? rand(weak) : rand(charSet);
       }
       words.push(w);
+    } else if (useGibberish) {
+      // Build a 2-5 letter random word from selected chars only
+      const len = randInt(2, 5);
+      let w = '';
+      for (let j = 0; j < len; j++) w += rand(charArr);
+      words.push(w);
     } else {
-      words.push(rand(pool));
+      // Pick a real word that contains only allowed letters
+      words.push(rand(filtered));
     }
   }
   return words.join(' ');
@@ -1596,14 +1620,23 @@ function generateTextPassage() {
     return { text: parts.join(' '), meta: null };
   }
   if (textSettings.mode === 'randchars') {
-    // LCWO-style: 5-char random groups from selected chars in Config
+    // LCWO-style: size the passage to fill the chosen timed duration.
     const pool = getWeightedChars();
     if (pool.length === 0) return { text: '', meta: null };
+
+    // Estimate ms per 5-char group at current speed.
+    // Avg char ≈ 10 dit-units of tone; char gap = 3 fDits; word gap = 7 fDits.
+    const fDit = 1200 / Math.min(settings.fwpm, settings.wpm);
+    const dit  = 1200 / settings.wpm;
+    const msPerGroup = (settings.groupSize * 10 * dit) + ((settings.groupSize - 1) * 3 * fDit) + (7 * fDit);
+    
+    const targetMs = textSettings.lengthMin * 60 * 1000;
+    const numGroups = Math.max(1, Math.round(targetMs / msPerGroup));
+
     const groups = [];
-    const numGroups = randInt(4, 8); // a handful per passage
     for (let g = 0; g < numGroups; g++) {
       let grp = '';
-      for (let i = 0; i < 5; i++) grp += rand(pool);
+      for (let i = 0; i < settings.groupSize; i++) grp += rand(pool);
       groups.push(grp);
     }
     return { text: groups.join(' '), meta: null };
@@ -2151,7 +2184,20 @@ function setTextMode(m) {
   document.querySelectorAll('[data-tmode]').forEach(b =>
     b.classList.toggle('active', b.dataset.tmode === m));
   updateTextModeLabel();
+  updateLengthVisibility();
   persistSettings();
+}
+
+function updateLengthVisibility() {
+  const isTimed = textSettings.mode === 'randchars';
+  document.getElementById('textLengthRow').style.display = isTimed ? 'flex' : 'none';
+  // Length section label sits in the DOM right before the length row
+  const lengthLabel = document.querySelector('#panel-text .section-label[data-section="length"]');
+  if (lengthLabel) lengthLabel.style.display = isTimed ? 'block' : 'none';
+  // Custom input also stays hidden when not in randchars
+  if (!isTimed) {
+    document.getElementById('customLengthRow').style.display = 'none';
+  }
 }
   
 function setTextLength(min) {
@@ -2670,7 +2716,7 @@ function persistSettings() {
     selectedChars: [...settings.selectedChars],
     theme: settings.theme || 'dark',
     textMode: textSettings.mode,
-    textLength: textSettings.lengthMin,
+    textLengthMin: textSettings.lengthMin,
     textRegion: textSettings.region,
     textRecall: textSettings.recall,
     reflexRoundSize: reflexConfig.roundSize,
@@ -2716,6 +2762,7 @@ function restoreSettings() {
     b.classList.toggle('active', +b.dataset.rsize === reflexConfig.roundSize));
   document.querySelectorAll('[data-rwin]').forEach(b =>
     b.classList.toggle('active', +b.dataset.rwin === reflexConfig.windowMs));
+  updateLengthVisibility();
 }  
   
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3012,6 +3059,7 @@ document.body.addEventListener('touchstart', () => {
 
 // Land on Learn tab by default; show welcome on first visit
 switchTab('learn');
+updateLengthVisibility();
 maybeShowWelcome();
 
 </script>
