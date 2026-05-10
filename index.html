@@ -34,12 +34,44 @@
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
 
   /* ─── Theme tokens ─── */
-  :root {
-    --bg: #0a0e0a; --surface: #0f1a0f; --surface2: #162016;
-    --green: #00ff41; --green-dim: #00a829; --green-dark: #003d12;
-    --amber: #ffb300; --red: #ff3b3b; --blue: #4dc4ff;
-    --text: #c8f0c8; --text-dim: #5a8a5a; --border: #1e3a1e;
-  }
+/* Dark theme (default) */
+:root, [data-theme="dark"] {
+  --bg: #0a0e0a; --surface: #0f1a0f; --surface2: #162016;
+  --green: #00ff41; --green-dim: #00a829; --green-dark: #003d12;
+  --amber: #ffb300; --red: #ff3b3b; --blue: #4dc4ff;
+  --text: #c8f0c8; --text-dim: #5a8a5a; --border: #1e3a1e;
+  --scanline-opacity: 0.08;
+}
+
+/* Light theme — easier on older eyes, no scanlines, high contrast */
+[data-theme="light"] {
+  --bg: #f5f5f0; --surface: #ffffff; --surface2: #f0f0e8;
+  --green: #008820; --green-dim: #00aa30; --green-dark: #d8f0d8;
+  --amber: #d68000; --red: #c8202c; --blue: #0066cc;
+  --text: #1a2a1a; --text-dim: #607a60; --border: #c0d0c0;
+  --scanline-opacity: 0;
+}
+
+/* Disable scanline overlay in light mode */
+[data-theme="light"] body::after {
+  display: none;
+}
+
+/* Light mode — disable text-shadow glow for readability */
+[data-theme="light"] .logo,
+[data-theme="light"] .tab.active,
+[data-theme="light"] .display-state,
+[data-theme="light"] .score-num,
+[data-theme="light"] .focus-char {
+  text-shadow: none;
+}
+[data-theme="light"] .status-dot,
+[data-theme="light"] input[type=range]::-webkit-slider-thumb,
+[data-theme="light"] .play-indicator .pi-dot,
+[data-theme="light"] .reflex-btn.flash-correct,
+[data-theme="light"] .reflex-btn.flash-wrong {
+  box-shadow: none;
+}
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -602,6 +634,41 @@
     font-size: 0.6rem; letter-spacing: 0.2em;
     text-transform: uppercase; border-radius: 3px;
   }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     LEARN PANEL
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .learn-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 30px 20px;
+  text-align: center;
+}
+.learn-char {
+  font-family: 'Orbitron', monospace;
+  font-size: 5rem;
+  font-weight: 900;
+  color: var(--green);
+  text-shadow: 0 0 30px var(--green);
+  margin-bottom: 12px;
+}
+.learn-morse {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.6rem;
+  letter-spacing: 0.3em;
+  color: var(--amber);
+  margin-bottom: 18px;
+}
+.learn-phonetic {
+  font-size: 1.1rem;
+  color: var(--text);
+  letter-spacing: 0.05em;
+  font-style: italic;
+  margin-bottom: 24px;
+}
+.learn-controls { display: flex; gap: 8px; }
 </style>
 </head>
 <body>
@@ -618,24 +685,31 @@
 </div>
 
 <div class="tabs">
-  <div class="tab stub" data-tab="learn" onclick="switchTab('learn')">📚 Learn</div>
+  <div class="tab" data-tab="learn" onclick="switchTab('learn')">📚 Learn</div>
   <div class="tab" data-tab="reflex" onclick="switchTab('reflex')">⚡ Reflex</div>
   <div class="tab active" data-tab="trainer" onclick="switchTab('trainer')">▶ Train</div>
   <div class="tab" data-tab="text" onclick="switchTab('text')">📡 Text</div>
-  <div class="tab stub" data-tab="words" onclick="switchTab('words')">🔤 Words</div>
+  <div class="tab" data-tab="words" onclick="switchTab('words')">🔤 Words</div>
   <div class="tab stub" data-tab="send" onclick="switchTab('send')">🎹 Send</div>
   <div class="tab" data-tab="settings" onclick="switchTab('settings')">⚙ Config</div>
   <div class="tab" data-tab="stats" onclick="switchTab('stats')">📊 Stats</div>
+  <div class="tab" data-tab="help" onclick="switchTab('help')">❓ Help</div>
 </div>
 
 <!-- ─── PANEL: LEARN [STUB] ─── -->
 <div class="panel" id="panel-learn">
-  <div class="stub-panel">
-    <h2>LEARN</h2>
-    <p>Sound-shape introduction with gibberish phonetic vocalizations.</p>
-    <p>Defeats dit-dah counting before it starts by encoding each character as an unanalyzable rhythm word (e.g., O = "HOLLOW HOLLOW HOLLOW", K = "WHO are YOU?").</p>
-    <p>Coming in Phase C — see CW-TRAINER-SPEC.md.</p>
-    <div class="stub-tag">Phase C — Stub</div>
+  <div class="session-info">
+    <span>📚 LEARN — Phase 1: Sound Shapes</span>
+  </div>
+
+  <div class="info-text" style="margin-bottom:14px">
+    Each character is introduced with a phonetic <strong>rhythm word</strong> — a memorable nonsense phrase whose stress pattern mirrors the dah/dit shape. Forget "dah dit dah" — think "<em>WHO are YOU</em>". Sing it. Feel the shape.
+  </div>
+
+  <div id="learnArea">
+    <div class="empty-state">
+      <button class="btn primary" onclick="startLearnSession()" style="max-width:200px;margin:auto">▶ START LEARNING</button>
+    </div>
   </div>
 </div>
 
@@ -704,7 +778,7 @@
       <span id="reflexPlayStatus">LISTEN</span>
     </div>
 
-    <div class="kbd-hint">Desktop: press [ 1 ] [ 2 ] [ 3 ] [ 4 ] for buttons</div>
+    <div class="kbd-hint">Desktop: press the letter key (A–Z, 0–9) or [ 1 ] [ 2 ] [ 3 ] [ 4 ] for position</div>
 
     <div class="controls">
       <button class="btn danger" onclick="abortReflexRound()">✕ ABORT</button>
@@ -862,12 +936,28 @@
 
 <!-- ─── PANEL: WORDS [STUB] ─── -->
 <div class="panel" id="panel-words">
-  <div class="stub-panel">
-    <h2>WORDS</h2>
-    <p>Whole-word recognition drill — stop hearing letters, start hearing language.</p>
-    <p>Plays common CW words and abbreviations as single rhythm shapes (TNX, FB, OM, 73, RST, QTH, DE, CQ...). 4 word options appear; tap the right one within 1.5 seconds.</p>
-    <p>The bridge from "Morse student" to fluent operator. Coming in Phase C.</p>
-    <div class="stub-tag">Phase C — Stub</div>
+  <div class="session-info">
+    <span>🔤 WORDS — Whole-Word Recognition</span>
+  </div>
+
+  <div class="info-text" style="margin-bottom:14px">
+    Hear a common CW word as a single rhythm shape. Pick from 4 options. Stops you hearing letters; starts you hearing language.
+  </div>
+
+  <div id="wordsSetupArea">
+    <div class="info-text">
+      Words: TNX, FB, OM, 73, RST, QTH, CQ, DE, and more.
+    </div>
+    <div class="controls" style="margin-top:14px">
+      <button class="btn primary" onclick="startWordsRound()">▶ START 20-WORD ROUND</button>
+    </div>
+  </div>
+
+  <div id="wordsPlayArea" style="display:none">
+    <div class="reflex-buttons" id="wordsButtons" style="grid-template-columns: 1fr 1fr"></div>
+    <div class="controls">
+      <button class="btn danger" onclick="wordsState=null;document.getElementById('wordsPlayArea').style.display='none';document.getElementById('wordsSetupArea').style.display='block';">✕ ABORT</button>
+    </div>
   </div>
 </div>
 
@@ -884,6 +974,15 @@
 
 <!-- ─── PANEL: CONFIG ─── -->
 <div class="panel" id="panel-settings">
+  <div class="section-label">── Theme ──</div>
+<div class="preset-row">
+  <button class="preset-btn" data-theme-btn="dark" onclick="setTheme('dark')">🌙 Dark</button>
+  <button class="preset-btn" data-theme-btn="light" onclick="setTheme('light')">☀ Light</button>
+</div>
+<div class="info-text">
+  Light theme is gentler on older eyes, no scanline effect, higher contrast.
+</div>
+  
   <div class="section-label">── Speed ──</div>
   <div class="row">
     <label>Char speed (WPM)</label>
@@ -974,6 +1073,87 @@
   </div>
 </div>
 
+<!-- ─── PANEL: HELP ─── -->
+<div class="panel" id="panel-help">
+  <div class="section-label">── Quick Start ──</div>
+  <div class="info-text" style="font-size:0.75rem;line-height:1.7">
+    New to Morse code? Start in <strong style="color:var(--green)">Config</strong> → tap <strong>Koch 5</strong> to select your first 5 characters. Then go to <strong style="color:var(--green)">⚡ Reflex</strong> and start a 20-round drill. Once you can hit 80% with avg reaction time under 800ms, add 2 more characters in Config and repeat.
+  </div>
+
+  <div class="section-label">── 📚 Learn (coming soon) ──</div>
+  <div class="info-text" style="font-size:0.72rem;line-height:1.6">
+    Will introduce each new character as a sound shape with memorable phonetic vocalization (e.g., O = "HOLLOW HOLLOW HOLLOW"). The goal is to skip the "dit-dah counting" stage entirely and encode characters as rhythm shapes from day one.
+  </div>
+
+  <div class="section-label">── ⚡ Reflex ──</div>
+  <div class="info-text" style="font-size:0.72rem;line-height:1.6">
+    The most important drill. App plays one character → 4 letter buttons appear → you tap the right one within 0.8 seconds. No typing, no thinking. The short window forces your brain to recognize sound shapes instantly instead of counting dits and dahs. A character is "fluent" when avg reaction time drops below 600ms.
+    <br><br>
+    <strong>Why this matters:</strong> traditional trainers let you succeed by counting, which is the wrong skill. Reflex drilling makes counting fail and forces gestalt recognition.
+  </div>
+
+  <div class="section-label">── ▶ Train ──</div>
+  <div class="info-text" style="font-size:0.72rem;line-height:1.6">
+    Classic LCWO-style drill. Plays a random group of N characters; you type what you hear. Submit shows what was sent vs what you typed. Good for endurance copy practice.
+    <br><br>
+    Keep character speed at <strong style="color:var(--amber)">18+ WPM</strong>. Slower teaches counting. Use Farnsworth (effective speed) to slow the overall pace if needed.
+  </div>
+
+  <div class="section-label">── 📡 Text ──</div>
+  <div class="info-text" style="font-size:0.72rem;line-height:1.6">
+    Real-world copy practice. Choose a mode:
+    <br>• <strong>Plain</strong> — random words from CW vocabulary
+    <br>• <strong>QSO</strong> — full ham radio exchange (CQ, callsign, RST, name, QTH, 73)
+    <br>• <strong>Callsign</strong> — bursts of random callsigns
+    <br>• <strong>Mixed</strong> — combination
+    <br><br>
+    Region picks the flavor: Indian (VU2/VU3 prefixes, Indian names/cities), International (DX prefixes), or Mixed.
+    <br><br>
+    <strong>Recall test (QSO mode):</strong> after the passage plays, you're asked "What was the callsign? Name? QTH?" — trains head-copy comprehension, not just transcription.
+  </div>
+
+  <div class="section-label">── 🔤 Words (coming soon) ──</div>
+  <div class="info-text" style="font-size:0.72rem;line-height:1.6">
+    Whole-word recognition for advanced operators. Plays common CW words (TNX, FB, OM, 73, RST, QTH, CQ) as single rhythm shapes. Stops you hearing letters and starts you hearing language.
+  </div>
+
+  <div class="section-label">── 🎹 Send (coming soon) ──</div>
+  <div class="info-text" style="font-size:0.72rem;line-height:1.6">
+    Paddle sending practice. Two big DIT/DAH buttons (mobile thumbs) or configurable arrow keys (desktop). App scores your timing accuracy. Sending is the layer most learners skip — and it's why they plateau. Motor memory locks Morse into your brain in ways listening alone cannot.
+  </div>
+
+  <div class="section-label">── ⚙ Config ──</div>
+  <div class="info-text" style="font-size:0.72rem;line-height:1.6">
+    <strong>Char speed:</strong> how fast each character plays. Keep ≥18 WPM.
+    <br><strong>Effective (Farnsworth):</strong> overall pace. Lower = bigger gaps between characters. Good for learners.
+    <br><strong>Tone:</strong> pitch in Hz. Most ops use 600–700 Hz.
+    <br><strong>Group size:</strong> how many chars per Train round.
+    <br><strong>Focus weight:</strong> how aggressively weak characters are repeated. 60% works well.
+    <br><strong>Timed sessions:</strong> length for continuous drills.
+  </div>
+
+  <div class="section-label">── 📊 Stats ──</div>
+  <div class="info-text" style="font-size:0.72rem;line-height:1.6">
+    Tracks per-character accuracy, reaction time (from Reflex), and session log. <strong>Export JSON</strong> downloads your data — save to Drive/Dropbox to sync between devices. <strong>Import JSON</strong> merges (no overwrite). All settings are now also saved automatically and survive refresh.
+  </div>
+
+  <div class="section-label">── Tips for Old-Hand Hams ──</div>
+  <div class="info-text" style="font-size:0.72rem;line-height:1.6">
+    If you already copy at 15+ WPM and want to push higher:
+    <br>• Set char speed to 25+ WPM, effective to your current copy speed
+    <br>• Use Reflex tab daily for 5 minutes — it breaks plateaus
+    <br>• Use Text mode QSO with International region to expose yourself to unfamiliar callsign formats
+    <br>• 20 minutes daily beats 2 hours weekly — sleep consolidates motor memory
+  </div>
+
+  <div class="section-label">── About ──</div>
+  <div class="info-text" style="font-size:0.7rem;line-height:1.6">
+    CW Trainer — single-page web app, runs offline after first load. All your data stays on your device.
+    <br><br>
+    Made for hams, by hams. 73!
+  </div>
+</div>  
+
 <div class="notification" id="notification"></div>
 
 <script>
@@ -1016,19 +1196,23 @@ const ABBREVS = ['FB','TNX','OM','YL','HR','CPY','UR','DE','RST','QTH','QSL','QR
 function loadData() {
   try {
     const raw = localStorage.getItem('cwData');
-    const def = { version: 2, stats: {}, sessions: [], progress: { phase: 1, completedDrills: [] } };
+    const def = {
+      version: 2, stats: {}, sessions: [],
+      progress: { phase: 1, completedDrills: [] },
+      savedSettings: null
+    };
     if (!raw) return def;
     const d = JSON.parse(raw);
     if (!d.stats) d.stats = {};
     if (!d.sessions) d.sessions = [];
     if (!d.progress) d.progress = { phase: 1, completedDrills: [] };
-    // Migrate older entries: ensure reactionTimes array exists
+    if (!d.savedSettings) d.savedSettings = null;
     Object.keys(d.stats).forEach(c => {
       if (!Array.isArray(d.stats[c].reactionTimes)) d.stats[c].reactionTimes = [];
     });
     return d;
   } catch (e) {
-    return { version: 2, stats: {}, sessions: [], progress: { phase: 1, completedDrills: [] } };
+    return { version: 2, stats: {}, sessions: [], progress: { phase: 1, completedDrills: [] }, savedSettings: null };
   }
 }
 
@@ -1374,9 +1558,119 @@ function generateTextPassage() {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION 7: TAB — LEARN [STUB]
-// Phase C. Sound-shape introduction with gibberish vocalizations.
 // ═══════════════════════════════════════════════════════════════════════════
-// (no logic yet — panel renders informational stub)
+// SECTION 7: TAB — LEARN
+// Sound-shape introduction with gibberish phonetic vocalizations.
+// Each character has a memorable rhythm word that mirrors its dit-dah pattern
+// without inviting analytical decomposition. Goal: encode shape, not sequence.
+// STATUS: scaffold — UI rendering works; spaced-repetition logic is TODO.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Phonetic vocalizations — each maps to the character's rhythm pattern.
+// Stress mirrors dah-vs-dit. Use ALL CAPS for dah syllables, lowercase for dit.
+// Choose words that resist analytical breakdown ("ka-PLAY" not "di-DAH").
+const PHONETICS = {
+  'A': 'ka-PLAY',           // .-
+  'B': 'BOOM-ba-ba-ba',     // -...
+  'C': 'CO-ca-CO-la',       // -.-.
+  'D': 'DOG-did-it',        // -..
+  'E': 'eep',               // .
+  'F': 'di-di-DAH-dit',     // ..-.
+  'G': 'GOOD-GRAVE-yard',   // --.
+  'H': 'hippity-hoppity',   // ....
+  'I': 'iddy',              // ..
+  'J': 'a-LIVE-LIVE-LIVE',  // .---
+  'K': 'WHO-are-YOU',       // -.-
+  'L': 'di-DAH-di-dit',     // .-..
+  'M': 'MA-MA',             // --
+  'N': 'NA-vy',             // -.
+  'O': 'HOLLOW-HOLLOW-HOLLOW', // ---
+  'P': 'di-DAH-DAH-dit',    // .--.
+  'Q': 'GOD-SAVE-the-QUEEN',// --.-
+  'R': 'ro-TA-tion',        // .-.
+  'S': 'sip-it-up',         // ...
+  'T': 'TALL',              // -
+  'U': 'di-di-DAH',         // ..-
+  'V': 'beethoven-FIFTH',   // ...-
+  'W': 'a-WAY-WAY',         // .--
+  'X': 'DOUBT-it-it-IS',    // -..-
+  'Y': 'YONDER-COMES-the-WAR',  // -.--
+  'Z': 'ZINC-OXIDE-cures',  // --..
+  '0': 'TEN-TON-TRUCK-ROLL-on', '1': 'one-DOWN-DOWN-DOWN-DOWN',
+  '2': 'two-two-DOWN-DOWN-DOWN', '3': 'three-three-three-DOWN-DOWN',
+  '4': 'four-four-four-four-DOWN', '5': 'five-five-five-five-five',
+  '6': 'BIG-six-six-six-six', '7': 'BIG-BANG-seven-seven-seven',
+  '8': 'BIG-BANG-DRUM-eight-eight', '9': 'BIG-BANG-DRUM-BAND-nine'
+};
+
+let learnState = {
+  currentChar: null,
+  exposureCount: 0,    // how many times shown this session
+  introduced: new Set(JSON.parse(localStorage.getItem('cwLearnIntroduced') || '[]'))
+};
+
+function getNextLearnChar() {
+  // Walk Koch order, find first character not yet introduced
+  for (const c of KOCH) {
+    if (!learnState.introduced.has(c)) return c;
+  }
+  return null; // all introduced
+}
+
+function startLearnSession() {
+  const c = getNextLearnChar();
+  if (!c) {
+    notify('All Koch characters introduced! Practice in Reflex/Train.');
+    return;
+  }
+  learnState.currentChar = c;
+  learnState.exposureCount = 0;
+  renderLearnCard();
+}
+
+function renderLearnCard() {
+  const c = learnState.currentChar;
+  if (!c) return;
+  const phon = PHONETICS[c] || c;
+  const morse = MORSE[c];
+  const html = `
+    <div class="learn-card">
+      <div class="learn-char">${c}</div>
+      <div class="learn-morse">${morse}</div>
+      <div class="learn-phonetic">${phon}</div>
+      <div class="learn-controls">
+        <button class="btn primary" onclick="playLearnChar()">▶ HEAR IT</button>
+        <button class="btn" onclick="learnGotIt()">✓ GOT IT (${learnState.exposureCount}/5)</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('learnArea').innerHTML = html;
+}
+
+function playLearnChar() {
+  if (!learnState.currentChar) return;
+  playMorse([learnState.currentChar], null, () => {});
+}
+
+function learnGotIt() {
+  learnState.exposureCount++;
+  if (learnState.exposureCount >= 5) {
+    learnState.introduced.add(learnState.currentChar);
+    localStorage.setItem('cwLearnIntroduced',
+      JSON.stringify([...learnState.introduced]));
+    notify(`✓ ${learnState.currentChar} introduced. Practice it in Reflex.`);
+    // TODO: trigger spaced-repetition recall test before final lock-in
+    startLearnSession(); // move to next char
+  } else {
+    renderLearnCard();
+  }
+}
+
+// TODO Phase C completion:
+//   - Spaced repetition (recall test at 5sec, 30sec, 2min intervals)
+//   - Y/N recognition test before marking introduced
+//   - Audio + visual phonetic synced playback (karaoke-style)
+//   - Track learn-stats separately from reflex/train stats
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION 8: TAB — REFLEX [NEW THIS BUILD]
@@ -1396,11 +1690,13 @@ function setReflexRound(n) {
   reflexConfig.roundSize = n;
   document.querySelectorAll('[data-rsize]').forEach(b =>
     b.classList.toggle('active', +b.dataset.rsize === n));
+  persistSettings();
 }
 function setReflexWindow(ms) {
   reflexConfig.windowMs = ms;
   document.querySelectorAll('[data-rwin]').forEach(b =>
     b.classList.toggle('active', +b.dataset.rwin === ms));
+  persistSettings();
 }
 
 function startReflexRound() {
@@ -1677,7 +1973,7 @@ function startNewGroup() {
   const inp = document.getElementById('userInput');
   inp.value = ''; inp.disabled = false;
   document.getElementById('inputArea').classList.add('active');
-  if (!('ontouchstart' in window)) inp.focus();
+  inp.focus();
   document.getElementById('resultBox').classList.remove('visible');
   document.getElementById('playBtn').textContent = '⏹ STOP';
   document.getElementById('playBtn').classList.add('playing');
@@ -1706,7 +2002,7 @@ function replayLast() {
   const inp = document.getElementById('userInput');
   inp.disabled = false;
   document.getElementById('inputArea').classList.add('active');
-  if (!('ontouchstart' in window)) inp.focus();
+  inp.focus();
   document.getElementById('resultBox').classList.remove('visible');
   document.getElementById('playBtn').textContent = '⏹ STOP';
   document.getElementById('playBtn').classList.add('playing');
@@ -1807,20 +2103,24 @@ function setTextMode(m) {
   document.querySelectorAll('[data-tmode]').forEach(b =>
     b.classList.toggle('active', b.dataset.tmode === m));
   updateTextModeLabel();
+  persistSettings();
 }
 function setTextLength(l) {
   textSettings.length = l;
   document.querySelectorAll('[data-tlen]').forEach(b =>
     b.classList.toggle('active', b.dataset.tlen === l));
+  persistSettings();
 }
 function setTextRegion(r) {
   textSettings.region = r;
   document.querySelectorAll('[data-treg]').forEach(b =>
     b.classList.toggle('active', b.dataset.treg === r));
+  persistSettings();
 }
 function toggleRecall() {
   textSettings.recall = !textSettings.recall;
   document.getElementById('recallToggle').classList.toggle('on', textSettings.recall);
+persistSettings();
 }
 function updateTextModeLabel() {
   document.getElementById('textModeLabel').textContent = `MODE: ${textSettings.mode.toUpperCase()}`;
@@ -2054,7 +2354,90 @@ function updateTextSessionDisplay() {
 // SECTION 11: TAB — WORDS [STUB]
 // Phase C. Whole-word recognition: TNX, FB, OM, 73 as single rhythm shapes.
 // ═══════════════════════════════════════════════════════════════════════════
-// (no logic yet)
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 11: TAB — WORDS
+// Whole-word recognition: hear a CW word as a single rhythm, pick from 4.
+// STATUS: scaffold — uses ABBREVS pool. Reuses Reflex-style logic.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const COMMON_CW_WORDS = ['TNX', 'FB', 'OM', 'YL', '73', '88', 'RST', 'QTH',
+  'QSL', 'QRZ', 'CQ', 'DE', 'BK', 'AR', 'SK', 'GM', 'GA', 'GE', 'HW', 'CPY',
+  'UR', 'PSE', 'AGN', 'NIL', 'NR', 'ANT', 'RIG', 'PWR', 'WX', 'HR'];
+
+let wordsState = null;
+
+function startWordsRound() {
+  const trials = [];
+  for (let i = 0; i < 20; i++) trials.push(rand(COMMON_CW_WORDS));
+  wordsState = { trials, idx: 0, results: [], answered: false, target: null, options: [] };
+  document.getElementById('wordsSetupArea').style.display = 'none';
+  document.getElementById('wordsPlayArea').style.display = 'block';
+  setTimeout(() => nextWordsTrial(), 400);
+}
+
+function nextWordsTrial() {
+  if (!wordsState) return;
+  if (wordsState.idx >= wordsState.trials.length) {
+    finishWordsRound();
+    return;
+  }
+  const target = wordsState.trials[wordsState.idx];
+  wordsState.target = target;
+  wordsState.answered = false;
+
+  const distractors = [];
+  while (distractors.length < 3) {
+    const w = rand(COMMON_CW_WORDS);
+    if (w !== target && !distractors.includes(w)) distractors.push(w);
+  }
+  const options = [target, ...distractors];
+  for (let i = options.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [options[i], options[j]] = [options[j], options[i]];
+  }
+  wordsState.options = options;
+
+  document.getElementById('wordsButtons').innerHTML = options.map(w =>
+    `<button class="reflex-btn" onclick="wordsAnswer('${w}')" style="font-size:1.4rem">${w}</button>`
+  ).join('');
+
+  playMorse(target, null, () => {
+    if (!wordsState || wordsState.answered) return;
+    wordsState.startTime = Date.now();
+  });
+}
+
+function wordsAnswer(w) {
+  if (!wordsState || wordsState.answered) return;
+  wordsState.answered = true;
+  const ok = w === wordsState.target;
+  wordsState.results.push({ word: wordsState.target, ok });
+  wordsState.idx++;
+  setTimeout(() => nextWordsTrial(), 600);
+}
+
+function finishWordsRound() {
+  const correct = wordsState.results.filter(r => r.ok).length;
+  const total = wordsState.results.length;
+  const acc = total > 0 ? Math.round((correct/total)*100) : 0;
+  document.getElementById('wordsPlayArea').style.display = 'none';
+  document.getElementById('wordsSetupArea').style.display = 'block';
+  notify(`Words round: ${correct}/${total} (${acc}%)`);
+
+  data.sessions.push({
+    timestamp: Date.now(), kind: 'word',
+    correct, total, units: total,
+    wpm: settings.wpm, fwpm: settings.fwpm, chars: 'words'
+  });
+  saveData();
+  wordsState = null;
+}
+
+// TODO Phase C completion:
+//   - Reaction time tracking per word
+//   - Per-word fluency stats (separate from char stats)
+//   - Difficulty scaling: short words first, longer phrases later
+//   - "Fluent words" count in Stats overview
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION 12: TAB — SEND [STUB]
@@ -2069,6 +2452,24 @@ function updateTextSessionDisplay() {
 // Char WPM warning when below 18.
 // ═══════════════════════════════════════════════════════════════════════════
 
+function setTheme(theme) {
+  settings.theme = theme;
+  applyTheme();
+  document.querySelectorAll('[data-theme-btn]').forEach(b =>
+    b.classList.toggle('active', b.dataset.themeBtn === theme));
+  persistSettings();
+}
+
+function applyTheme() {
+  const theme = settings.theme || 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  document.querySelectorAll('[data-theme-btn]').forEach(b =>
+    b.classList.toggle('active', b.dataset.themeBtn === theme));
+  // Update theme-color meta for mobile chrome
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', theme === 'light' ? '#f5f5f0' : '#0a0e0a');
+}
+  
 let settings = {
   wpm: 20, fwpm: 12, tone: 600, groupSize: 5, focusWeight: 60,
   selectedChars: new Set(LETTERS),
@@ -2091,6 +2492,7 @@ function toggleChar(c) {
     'char-btn' + (settings.selectedChars.has(c) ? ' selected' : '');
   updateCharGridErrors();
   updateReflexCharCountInfo();
+  persistSettings();
 }
 
 function updateCharGridErrors() {
@@ -2118,6 +2520,7 @@ function applyPreset(name) {
   settings.selectedChars = presets[name] || new Set();
   buildCharGrid();
   updateReflexCharCountInfo();
+  persistSettings();
 }
 
 let lastWpmWarning = 0;
@@ -2140,14 +2543,79 @@ function updateSettings() {
   document.getElementById('groupVal').textContent = settings.groupSize;
   document.getElementById('focusVal').textContent = settings.focusWeight + '%';
   document.getElementById('fwpmSlider').max = settings.wpm;
+  persistSettings();
 }
 
 function setTimedLength(min) {
   settings.timedLengthMin = min;
   document.querySelectorAll('[data-tmin]').forEach(b =>
     b.classList.toggle('active', +b.dataset.tmin === min));
+  persistSettings();
 }
 
+// Persist settings to localStorage. Called whenever Config or text/reflex settings change.
+function persistSettings() {
+  data.savedSettings = {
+    wpm: settings.wpm,
+    fwpm: settings.fwpm,
+    tone: settings.tone,
+    groupSize: settings.groupSize,
+    focusWeight: settings.focusWeight,
+    selectedChars: [...settings.selectedChars],
+    timedLengthMin: settings.timedLengthMin,
+    theme: settings.theme || 'dark',
+    textMode: textSettings.mode,
+    textLength: textSettings.length,
+    textRegion: textSettings.region,
+    textRecall: textSettings.recall,
+    reflexRoundSize: reflexConfig.roundSize,
+    reflexWindowMs: reflexConfig.windowMs
+  };
+  saveData();
+}
+
+// Restore settings from saved data. Called once at init.
+function restoreSettings() {
+  const s = data.savedSettings;
+  if (!s) return;
+  settings.wpm = s.wpm ?? 20;
+  settings.fwpm = s.fwpm ?? 12;
+  settings.tone = s.tone ?? 600;
+  settings.groupSize = s.groupSize ?? 5;
+  settings.focusWeight = s.focusWeight ?? 60;
+  settings.timedLengthMin = s.timedLengthMin ?? 10;
+  settings.theme = s.theme ?? 'dark';
+  if (Array.isArray(s.selectedChars) && s.selectedChars.length > 0) {
+    settings.selectedChars = new Set(s.selectedChars);
+  }
+  textSettings.mode = s.textMode ?? 'plain';
+  textSettings.length = s.textLength ?? 'short';
+  textSettings.region = s.textRegion ?? 'indian';
+  textSettings.recall = s.textRecall ?? false;
+  reflexConfig.roundSize = s.reflexRoundSize ?? 20;
+  reflexConfig.windowMs = s.reflexWindowMs ?? 800;
+
+  // Reflect in UI
+  document.getElementById('wpmSlider').value = settings.wpm;
+  document.getElementById('fwpmSlider').value = settings.fwpm;
+  document.getElementById('toneSlider').value = settings.tone;
+  document.getElementById('groupSlider').value = settings.groupSize;
+  document.getElementById('focusSlider').value = settings.focusWeight;
+  document.querySelectorAll('[data-tmin]').forEach(b =>
+    b.classList.toggle('active', +b.dataset.tmin === settings.timedLengthMin));
+  document.querySelectorAll('[data-tmode]').forEach(b =>
+    b.classList.toggle('active', b.dataset.tmode === textSettings.mode));
+  document.querySelectorAll('[data-tlen]').forEach(b =>
+    b.classList.toggle('active', b.dataset.tlen === textSettings.length));
+  document.querySelectorAll('[data-treg]').forEach(b =>
+    b.classList.toggle('active', b.dataset.treg === textSettings.region));
+  document.getElementById('recallToggle').classList.toggle('on', textSettings.recall);
+  document.querySelectorAll('[data-rsize]').forEach(b =>
+    b.classList.toggle('active', +b.dataset.rsize === reflexConfig.roundSize));
+  document.querySelectorAll('[data-rwin]').forEach(b =>
+    b.classList.toggle('active', +b.dataset.rwin === reflexConfig.windowMs));
+}  
+  
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION 14: TAB — STATS
 // Overview, per-char accuracy + reaction time, session log, export/import.
@@ -2340,15 +2808,28 @@ function switchTab(name) {
 }
 
 document.addEventListener('keydown', e => {
-  // Reflex tab — number keys 1-4 trigger button taps
-  if (reflexState && !reflexState.answered && document.querySelector('.panel.active').id === 'panel-reflex') {
+  // ─── Reflex tab — letter/number keys map to options ───
+  if (reflexState && !reflexState.answered &&
+      document.querySelector('.panel.active').id === 'panel-reflex') {
+    const key = e.key.toUpperCase();
+
+    // Number keys 1-4: option position
     const num = parseInt(e.key, 10);
     if (num >= 1 && num <= 4 && reflexState.options[num - 1]) {
       e.preventDefault();
       reflexAnswer(reflexState.options[num - 1]);
       return;
     }
+
+    // Letter/digit/symbol matching the actual character of any option
+    if (reflexState.options.includes(key)) {
+      e.preventDefault();
+      reflexAnswer(key);
+      return;
+    }
   }
+
+  // ─── Space toggles play in Train and Text tabs ───
   if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     e.preventDefault();
     const activePanel = document.querySelector('.panel.active').id;
@@ -2394,12 +2875,14 @@ function notify(msg) {
 // SECTION 17: INIT
 // ═══════════════════════════════════════════════════════════════════════════
 
+restoreSettings();          // ← NEW: restore first
 buildCharGrid();
 updateSettings();
 renderStats();
 updateTextModeLabel();
 updateStreakDisplay();
 updateReflexCharCountInfo();
+applyTheme();               // ← NEW for #6
 
 document.body.addEventListener('touchstart', () => {
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
