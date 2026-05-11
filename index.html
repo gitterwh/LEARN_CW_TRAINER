@@ -1313,9 +1313,14 @@ let scheduledTimers = [];
 
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Chrome/Safari mobile: AudioContext starts suspended. Resume on every access.
+  // resume() returns a promise but we don't await — the next scheduleTone will
+  // run after the context is awake because all our scheduling is time-relative.
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
+  
 function getDitDah() {
   const wpm = settings.wpm;
   const fwpm = Math.min(settings.fwpm, settings.wpm);
@@ -1841,6 +1846,9 @@ function setReflexWindow(ms) {
 }
 
 function startReflexRound() {
+  // Ensure audio is unlocked — this function is called from a tap on START DRILL,
+  // so we're inside a user gesture and Chrome will let us resume.
+  unlockAudio();
   const allowed = [...settings.selectedChars];
   if (allowed.length < reflexConfig.optionCount) {
     notify(`Need at least ${reflexConfig.optionCount} characters in Config`);
@@ -3114,9 +3122,26 @@ updateStreakDisplay();
 updateReflexCharCountInfo();
 applyTheme();               // ← NEW for #6
 
-document.body.addEventListener('touchstart', () => {
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-}, { passive: true });
+// Unlock audio on the very first user gesture, no matter what kind.
+// Creates and resumes the AudioContext so subsequent scheduled tones play immediately.
+function unlockAudio() {
+  try {
+    getAudioCtx(); // creates if needed, also resumes if suspended
+    // Play a silent buffer to fully "unlock" on stricter browsers
+    const ctx = audioCtx;
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch (e) {}
+}
+
+['touchstart', 'touchend', 'click', 'keydown'].forEach(ev => {
+  document.addEventListener(ev, unlockAudio, { once: false, passive: true });
+});
+
+
 
 // First visit → Learn tab. Subsequent visits → wherever user left off.
 const lastTab = localStorage.getItem('cwLastTab');
