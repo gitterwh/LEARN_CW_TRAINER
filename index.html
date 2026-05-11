@@ -1744,11 +1744,35 @@ function getNextLearnChar() {
 function startLearnSession() {
   const c = getNextLearnChar();
   if (!c) {
-    notify('All Koch characters introduced! Practice in Reflex/Train.');
+    renderLearnComplete();
     return;
   }
   learnState.currentChar = c;
   renderLearnCard();
+}
+
+function renderLearnComplete() {
+  const html = `
+    <div class="learn-card">
+      <div class="learn-char" style="font-size:2.8rem">✓ ALL DONE</div>
+      <div class="learn-phonetic">
+        You've been introduced to all ${KOCH.length} Koch characters.<br>
+        Now build instant recognition in <strong>⚡ Reflex</strong>.
+      </div>
+      <div class="learn-controls">
+        <button class="btn" onclick="resetLearnProgress()">↻ RESET — RE-INTRODUCE ALL</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('learnArea').innerHTML = html;
+}
+
+function resetLearnProgress() {
+  if (!confirm('Reset Learn progress? You will re-walk through all Koch characters from K.')) return;
+  learnState.introduced = new Set();
+  localStorage.removeItem('cwLearnIntroduced');
+  notify('Learn progress reset');
+  startLearnSession();
 }
 
 function renderLearnCard() {
@@ -3001,6 +3025,7 @@ function switchTab(name) {
   document.getElementById('panel-' + name).classList.add('active');
   if (name === 'stats') renderStats();
   if (name === 'reflex') updateReflexCharCountInfo();
+  localStorage.setItem('cwLastTab', name);
 }
 
 document.addEventListener('keydown', e => {
@@ -3093,8 +3118,9 @@ document.body.addEventListener('touchstart', () => {
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 }, { passive: true });
 
-// Land on Learn tab by default; show welcome on first visit
-switchTab('learn');
+// First visit → Learn tab. Subsequent visits → wherever user left off.
+const lastTab = localStorage.getItem('cwLastTab');
+switchTab(lastTab || 'learn');
 updateLengthVisibility();
 maybeShowWelcome();
 
