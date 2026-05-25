@@ -563,10 +563,15 @@
     grid-template-columns: 1fr 1fr;
     gap: 12px;
     margin-bottom: 14px;
+    max-width: 440px;
+    margin-left: auto;
+    margin-right: auto;
   }
-  .reflex-btn {
-    aspect-ratio: 2 / 1;
-    min-height: 80px;
+.reflex-btn {
+    height: 90px;
+    max-width: 200px;
+    margin: 0 auto;
+    width: 100%;
     border: 2px solid var(--border);
     background: var(--surface);
     color: var(--text);
@@ -728,6 +733,55 @@
   margin-bottom: 24px;
 }
 .learn-controls { display: flex; gap: 8px; }
+
+/* ═══ READABILITY OVERRIDES — bump tiny fonts up for older eyes ═══ */
+  .tab { font-size: 0.85rem; letter-spacing: 0.05em; }
+  .section-label { font-size: 0.78rem; letter-spacing: 0.12em; }
+  .info-text { font-size: 0.9rem; line-height: 1.65; }
+  .row label { font-size: 0.95rem; }
+  .val { font-size: 1rem; }
+  .preset-btn { font-size: 0.85rem; padding: 8px 14px; letter-spacing: 0.05em; }
+  .char-btn { width: 42px; height: 42px; font-size: 1rem; }
+  .btn { font-size: 0.9rem; padding: 14px 8px; letter-spacing: 0.05em; }
+  .data-actions .btn { font-size: 0.85rem; padding: 12px 8px; }
+  .kbd-hint { font-size: 0.8rem; }
+  .session-info { font-size: 0.85rem; letter-spacing: 0.05em; }
+  .listening-msg { font-size: 0.95rem; }
+  .focus-label { font-size: 0.8rem; }
+  .focus-char { font-size: 1.1rem; padding: 5px 9px; }
+  .wpm-badge { font-size: 0.8rem; }
+  .play-indicator { font-size: 0.85rem; letter-spacing: 0.04em; }
+  .result-header { font-size: 0.8rem; letter-spacing: 0.12em; }
+  .result-char .sent, .result-char .got { font-size: 1.05rem; }
+  .score-num { font-size: 1.8rem; }
+  .score-label { font-size: 0.75rem; letter-spacing: 0.08em; }
+  .stat-card .sc { font-size: 1.4rem; }
+  .stat-card .sl { font-size: 0.72rem; letter-spacing: 0.05em; }
+  .cs-card .cs-char { font-size: 1.3rem; }
+  .cs-card .cs-pct { font-size: 0.72rem; }
+  .cs-card .cs-rt { font-size: 0.65rem; }
+  .session-log-row { font-size: 0.9rem; padding: 10px 6px; }
+  .slr-time, .slr-wpm { font-size: 0.8rem; }
+  .slr-mode { font-size: 0.7rem; }
+  .toggle-row label { font-size: 0.9rem; }
+  .recall-header { font-size: 0.85rem; }
+  .recall-q-label { font-size: 0.85rem; }
+  .recall-q input { font-size: 1.1rem; }
+  .recall-answer { font-size: 0.9rem; }
+  .empty-state { font-size: 0.95rem; }
+  .notification { font-size: 0.9rem; padding: 12px 22px; }
+  .diff-block { font-size: 1.1rem; line-height: 1.8; }
+  .diff-label { font-size: 0.75rem; letter-spacing: 0.12em; }
+  .reflex-stat .rs-val { font-size: 1.4rem; }
+  .reflex-stat .rs-lbl { font-size: 0.7rem; }
+  .stub-panel p { font-size: 0.95rem; line-height: 1.7; }
+  .stub-panel .stub-tag { font-size: 0.78rem; }
+  .input-area input, .input-area textarea { font-size: 1.5rem; }
+  .input-area input::placeholder, .input-area textarea::placeholder { font-size: 0.9rem; }
+  .welcome-modal p { font-size: 0.95rem; line-height: 1.75; }
+  .header-meta { font-size: 0.78rem; }
+
+  
 </style>
 </head>
 <body>
@@ -916,6 +970,12 @@
     <div class="progress-bar" id="progressBar"></div>
   </div>
 
+  <div class="result-box" id="resultBox">
+    <div class="result-header">── RESULT (sent / you typed) ──</div>
+    <div class="result-chars" id="resultChars"></div>
+    <div class="score-row" id="scoreRow"></div>
+  </div>
+  
   <div class="input-area" id="inputArea">
     <input type="text" id="userInput" placeholder="type as you hear..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" disabled>
   </div>
@@ -928,11 +988,7 @@
     <button class="btn danger" onclick="resetSession()">✕ RESET</button>
   </div>
 
-  <div class="result-box" id="resultBox">
-    <div class="result-header">── RESULT (sent / you typed) ──</div>
-    <div class="result-chars" id="resultChars"></div>
-    <div class="score-row" id="scoreRow"></div>
-  </div>
+  
 </div>
 
 <!-- ─── PANEL: TEXT ─── -->
@@ -2120,7 +2176,6 @@ function togglePlay() {
 
 function stopPlay() {
   isPlaying = false; stopAllAudio();
-  document.getElementById('userInput').disabled = true;
   document.getElementById('inputArea').classList.remove('active');
   document.getElementById('playBtn').textContent = '▶ PLAY';
   document.getElementById('playBtn').classList.remove('playing');
@@ -2138,7 +2193,7 @@ function startNewGroup() {
   const inp = document.getElementById('userInput');
   inp.value = ''; inp.disabled = false;
   document.getElementById('inputArea').classList.add('active');
-  inp.focus();
+  if (document.activeElement !== inp) inp.focus();
   document.getElementById('resultBox').classList.remove('visible');
   document.getElementById('playBtn').textContent = '⏹ STOP';
   document.getElementById('playBtn').classList.add('playing');
@@ -2189,7 +2244,6 @@ function submitAnswer() {
     document.getElementById('playBtn').textContent = '▶ PLAY';
     document.getElementById('playBtn').classList.remove('playing');
   }
-  document.getElementById('userInput').disabled = true;
   document.getElementById('inputArea').classList.remove('active');
   const raw = document.getElementById('userInput').value.trim().toUpperCase();
   const sent = currentGroup;
