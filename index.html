@@ -1098,7 +1098,7 @@
   <div id="wordsPlayArea" style="display:none">
     <div class="reflex-buttons" id="wordsButtons" style="grid-template-columns: 1fr 1fr"></div>
     <div class="controls">
-      <button class="btn danger" onclick="replayTextLast()">↺ REPLAY</button>
+            <button class="btn" onclick="replayWord()">🔁 REPLAY</button>
       <button class="btn danger" onclick="wordsState=null;document.getElementById('wordsPlayArea').style.display='none';document.getElementById('wordsSetupArea').style.display='block';">✕ ABORT</button>
     </div>
   </div>
@@ -2714,6 +2714,14 @@ function wordsAnswer(w) {
   setTimeout(() => nextWordsTrial(), 600);
 }
 
+function replayWord() {
+  if (!wordsState || wordsState.answered || !wordsState.target) return;
+  playMorse(wordsState.target, null, () => {
+    if (!wordsState || wordsState.answered) return;
+    wordsState.startTime = Date.now();
+  });
+}
+  
 function finishWordsRound() {
   const correct = wordsState.results.filter(r => r.ok).length;
   const total = wordsState.results.length;
@@ -2972,11 +2980,22 @@ function renderStats() {
       const dStr = date.toLocaleDateString([], {month:'short',day:'numeric'}) + ' ' +
                    date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
       const kindLabel = ({group:'GRP', text:'TXT', reflex:'RFX', word:'WRD', send:'SND'})[s.kind] || s.kind.toUpperCase();
+
+      let detail = '';
+      if (s.kind === 'reflex' && s.extra) {
+        const charSet = s.chars ? (s.chars.length > 14 ? s.chars.slice(0,14)+'…' : s.chars) : '';
+        const rt  = s.extra.avgReactionMs ? `${s.extra.avgReactionMs}ms` : '--';
+        const win = s.extra.windowMs ? `${s.extra.windowMs}ms win` : '';
+        detail = `<div class="slr-detail" style="font-size:0.6rem;color:var(--text-dim);padding:2px 0 4px 4px;letter-spacing:0.05em">
+          set: ${charSet} · ${s.total} trials · avg ${rt} · ${win}
+        </div>`;
+      }
+
       return `<div class="session-log-row">
         <span class="slr-time">${dStr} <span class="slr-mode">${kindLabel}</span></span>
         <span class="slr-stat">${s.correct}/${s.total}</span>
         <span class="slr-wpm">${s.wpm}/${s.fwpm}</span>
-        <span class="slr-pct ${cls}">${pct}%</span></div>`;
+        <span class="slr-pct ${cls}">${pct}%</span></div>${detail}`;
     }).join('')}</div>`;
   }
 }
