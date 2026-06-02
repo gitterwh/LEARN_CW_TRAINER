@@ -2026,7 +2026,7 @@ function recordReflexAnswer(chosen, isTimeout) {
   }
 
   const target = reflexState.target;
-  const rtMs = isTimeout ? reflexConfig.windowMs : (performance.now() - reflexState.startTime);
+  const rtMs = Math.min(isTimeout ? reflexConfig.windowMs : (performance.now() - reflexState.startTime),reflexConfig.windowMs);  
   const ok = !isTimeout && chosen === target;
 
   // Visual feedback flash on the button
