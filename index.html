@@ -1987,7 +1987,7 @@ function nextReflexTrial() {
   // Play the character then start the response window
   const duration = playMorse([target], null, () => {
     if (!reflexState || reflexState.answered) return;
-    reflexState.startTime = Date.now();
+    reflexState.startTime = performance.now();
     document.getElementById('reflexPlayIndicator').classList.remove('playing');
     setReflexStatus(`TAP! ${reflexConfig.windowMs}ms`);
     // Set timeout for window
@@ -2026,7 +2026,7 @@ function recordReflexAnswer(chosen, isTimeout) {
   }
 
   const target = reflexState.target;
-  const rtMs = isTimeout ? reflexConfig.windowMs : (Date.now() - reflexState.startTime);
+  const rtMs = isTimeout ? reflexConfig.windowMs : (performance.now() - reflexState.startTime);
   const ok = !isTimeout && chosen === target;
 
   // Visual feedback flash on the button
@@ -3245,6 +3245,25 @@ switchTab(lastTab || 'learn');
 updateLengthVisibility();
 maybeShowWelcome();
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECTION 18: MOBILE BG/FG HANDLING
+// iOS bug fix: resume audio context and clear stale timeouts when page regains focus
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    // Page is now visible — resume audio context
+    try {
+      getAudioCtx(); // Resumes suspended context
+    } catch (e) { console.warn('Audio resume:', e); }
+    
+    // If reflex drill was active, clear stale timeout to prevent ghost responses
+    if (reflexState && reflexState.timeoutId) {
+      clearTimeout(reflexState.timeoutId);
+      reflexState.timeoutId = null;
+    }
+  }
+});
+  
 </script>
 </body>
 </html>
