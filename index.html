@@ -2220,6 +2220,7 @@ function replayLast() {
   currentGroup = [...lastGroup];
   isPlaying = true;
   const inp = document.getElementById('userInput');
+  inp.value = '';
   inp.disabled = false;
   document.getElementById('inputArea').classList.add('active');
   inp.focus();
